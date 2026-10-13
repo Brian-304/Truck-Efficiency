@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Efficiency</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+<main class="container">
+
+    <!-- LEFT COLUMN -->
+    <div class="left">
+        <header>
+            <img src="./assets/TF1.png" alt="KeyFleet Logo">
+        </header>
+        <a href="#" class="nav-link">Log Session</a>
+    </div>
+
+    <!-- RIGHT COLUMN (TWO-COLUMN LAYOUT) -->
+    <div class="flex-container">
+
+        <!-- LEFT SIDE FORM -->
+        <div class="form-column">
+
+            <div class="flex-item">
+                <div class="features">
+                    <label for="manifestNumber">Manifest Number <span class="required">*</span></label>
+                    <p>Enter the alphanumeric manifest ID for this truck.</p>
+                    <input type="text" id="manifestNumber" placeholder="e.g. MNF-2026-4482" required />
+                </div>
+            </div>
+
+            <div class="flex-item">
+                <div class="features">
+                    <label for="numberOfUnits">Number of Units <span class="required">*</span></label>
+                    <p>Total units on the truck.</p>
+                    <input type="number" id="numberOfUnits" placeholder="e.g. 2000" required />
+                </div>
+            </div>
+
+            <div class="flex-item">
+                <div class="session-times features">
+                    <label class="section-label">Session Times <span class="required">*</span></label>
+                    <p>Record when the session started and ended.</p>
+
+                    <div class="flex">
+                        <div>
+                            <label for="startTime">Start Time <span class="required">*</span></label>
+                            <input type="time" id="startTime" required />
+                        </div>
+
+                        <div>
+                            <label for="endTime">End Time <span class="required">*</span></label>
+                            <input type="time" id="endTime" required />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-item">
+                <div class="features">
+                    <label for="numberOfPersonnel">Number of Personnel <span class="required">*</span></label>
+                    <p>Total team members working this truck. Minimum 1.</p>
+                    <input type="number" id="numberOfPersonnel" placeholder="e.g. 5" required />
+                </div>
+            </div>
+
+            <div class="flex-item">
+                <div class="features">
+                    <label for="leaderName">Leader's Name <span class="required">*</span></label>
+                    <p>Enter name of the lead responsible for this truck.</p>
+                    <input type="text" id="leaderName" placeholder="e.g. John Doe" required />
+                </div>
+            </div>
+
+            <div class="form-footer">
+                <p><span class="required">*</span> All fields are required</p>
+                <button type="submit" class="green-btn">Submit</button>
+            </div>
+
+        </div>
+
+        <!-- RIGHT SIDE GRAPH -->
+        <div class="graph-container">
+            <canvas id="efficiencyChart"></canvas>
+        </div>
+
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.querySelector('.green-btn').addEventListener('click', function (e) {
+    e.preventDefault();
+
+    const manifest = document.getElementById('manifestNumber').value;
+    const units = Number(document.getElementById('numberOfUnits').value);
+    const personnel = Number(document.getElementById('numberOfPersonnel').value);
+
+    const start = document.getElementById('startTime').value;
+    const end = document.getElementById('endTime').value;
+
+    const startTime = new Date(`1970-01-01T${start}:00`);
+    const endTime = new Date(`1970-01-01T${end}:00`);
+    const hoursWorked = (endTime - startTime) / (1000 * 60 * 60);
+
+    const teamActiveHours = hoursWorked * personnel;
+    const teamProductivity = units / teamActiveHours;
+    const truckUPH = units / hoursWorked;               // <-- truck speed
+    const uphPerPerson = (units / hoursWorked) / personnel;
+
+    const ctx = document.getElementById('efficiencyChart').getContext('2d');
+
+    new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Team Productivity (UPH)', 'Truck UPH', 'UPH per Person'],
+        datasets: [{
+            label: `Efficiency for ${manifest}`,
+            data: [teamProductivity, truckUPH, uphPerPerson],
+            backgroundColor: ['#22c55e', '#3b82f6', '#a855f7']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+});
+
+</script>
+
+</body>
+</html>
