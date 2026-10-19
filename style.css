@@ -160,3 +160,39 @@ a {
     margin-top: 1rem;
 }
 
+.session-history {
+    padding: 2rem;
+}
+
+.session-history h2 {
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    color: #F1F5F9;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #334155;
+    font-size: 0.9rem;
+}
+
+th {
+    background-color: #1E293B;
+    color: #94A3B8;
+    font-weight: 600;
+}
+
+td {
+    color: #F1F5F9;
+}
+
+tbody tr:hover {
+    background-color: #1E293B;
+}
+

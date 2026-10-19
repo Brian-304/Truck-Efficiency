@@ -1,142 +1,247 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Truck Efficiency</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+        rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
-</head>
+    </head>
 
-<body>
-
-<main class="container">
-
-    <!-- LEFT COLUMN -->
-    <div class="left">
+    <body>
+    <main class="container">
+        <!-- LEFT COLUMN -->
+        <div class="left">
         <header>
-            <img src="./assets/TF1.png" alt="KeyFleet Logo">
+            <img src="./assets/TF1.png" alt="KeyFleet Logo" />
         </header>
         <a href="#" class="nav-link">Log Session</a>
-    </div>
+        </div>
 
-    <!-- RIGHT COLUMN (TWO-COLUMN LAYOUT) -->
-    <div class="flex-container">
+        <!-- RIGHT COLUMN -->
+    <div class="right-column">
+
+      <!-- RIGHT COLUMN (TWO-COLUMN LAYOUT) -->
+      <div class="flex-container">
 
         <!-- LEFT SIDE FORM -->
         <div class="form-column">
-
             <div class="flex-item">
-                <div class="features">
-                    <label for="manifestNumber">Manifest Number <span class="required">*</span></label>
-                    <p>Enter the alphanumeric manifest ID for this truck.</p>
-                    <input type="text" id="manifestNumber" placeholder="e.g. MNF-2026-4482" required />
+            <div class="features">
+            <label for="manifestNumber"
+                >Manifest Number <span class="required">*</span></label>
+              <p>Enter the alphanumeric manifest ID for this truck.</p>
+              <input
+                type="text"
+                id="manifestNumber"
+                placeholder="e.g. MNF-2026-4482"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="flex-item">
+            <div class="features">
+              <label for="numberOfUnits"
+                >Number of Units <span class="required">*</span></label
+              >
+              <p>Total units on the truck.</p>
+              <input
+                type="number"
+                id="numberOfUnits"
+                placeholder="e.g. 2000"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="flex-item">
+            <div class="session-times features">
+              <label class="section-label"
+                >Session Times <span class="required">*</span></label
+              >
+              <p>Record when the session started and ended.</p>
+
+              <div class="flex">
+                <div>
+                  <label for="startTime"
+                    >Start Time <span class="required">*</span></label
+                  >
+                  <input type="time" id="startTime" required />
                 </div>
-            </div>
 
-            <div class="flex-item">
-                <div class="features">
-                    <label for="numberOfUnits">Number of Units <span class="required">*</span></label>
-                    <p>Total units on the truck.</p>
-                    <input type="number" id="numberOfUnits" placeholder="e.g. 2000" required />
+                <div>
+                  <label for="endTime"
+                    >End Time <span class="required">*</span></label
+                  >
+                  <input type="time" id="endTime" required />
                 </div>
+              </div>
             </div>
+          </div>
 
-            <div class="flex-item">
-                <div class="session-times features">
-                    <label class="section-label">Session Times <span class="required">*</span></label>
-                    <p>Record when the session started and ended.</p>
-
-                    <div class="flex">
-                        <div>
-                            <label for="startTime">Start Time <span class="required">*</span></label>
-                            <input type="time" id="startTime" required />
-                        </div>
-
-                        <div>
-                            <label for="endTime">End Time <span class="required">*</span></label>
-                            <input type="time" id="endTime" required />
-                        </div>
-                    </div>
-                </div>
+          <div class="flex-item">
+            <div class="features">
+              <label for="numberOfPersonnel"
+                >Number of Personnel <span class="required">*</span></label
+              >
+              <p>Total team members working this truck. Minimum 1.</p>
+              <input
+                type="number"
+                id="numberOfPersonnel"
+                placeholder="e.g. 5"
+                required
+              />
             </div>
+          </div>
 
-            <div class="flex-item">
-                <div class="features">
-                    <label for="numberOfPersonnel">Number of Personnel <span class="required">*</span></label>
-                    <p>Total team members working this truck. Minimum 1.</p>
-                    <input type="number" id="numberOfPersonnel" placeholder="e.g. 5" required />
-                </div>
+          <div class="flex-item">
+            <div class="features">
+              <label for="leaderName"
+                >Leader's Name <span class="required">*</span></label
+              >
+              <p>Enter name of the lead responsible for this truck.</p>
+              <input
+                type="text"
+                id="leaderName"
+                placeholder="e.g. John Doe"
+                required
+              />
             </div>
+          </div>
 
-            <div class="flex-item">
-                <div class="features">
-                    <label for="leaderName">Leader's Name <span class="required">*</span></label>
-                    <p>Enter name of the lead responsible for this truck.</p>
-                    <input type="text" id="leaderName" placeholder="e.g. John Doe" required />
-                </div>
-            </div>
-
-            <div class="form-footer">
-                <p><span class="required">*</span> All fields are required</p>
-                <button type="submit" class="green-btn">Submit</button>
-            </div>
-
+          <div class="form-footer">
+            <p><span class="required">*</span> All fields are required</p>
+            <button type="submit" class="green-btn">Submit</button>
+          </div>
         </div>
 
         <!-- RIGHT SIDE GRAPH -->
         <div class="graph-container">
-            <canvas id="efficiencyChart"></canvas>
+          <canvas id="efficiencyChart"></canvas>
         </div>
+      </div>
+      </div>
 
+       <div class="session-history">
+      <h2>Session History</h2>
+      <table id="sessionTable">
+        <thead>
+          <tr>
+            <th>Manifest</th>
+            <th>Leader</th>
+            <th>Units</th>
+            <th>Personnel</th>
+            <th>Hours</th>
+            <th>Team Productivity</th>
+            <th>Avg Hours/Member (90 UPH)</th>
+            <th>Units/Member</th>
+          </tr>
+        </thead>
+        <tbody id="sessionBody"></tbody>
+      </table>
     </div>
-</main>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      
+    </main>
 
-<script>
-document.querySelector('.green-btn').addEventListener('click', function (e) {
-    e.preventDefault();
+    
 
-    const manifest = document.getElementById('manifestNumber').value;
-    const units = Number(document.getElementById('numberOfUnits').value);
-    const personnel = Number(document.getElementById('numberOfPersonnel').value);
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    const start = document.getElementById('startTime').value;
-    const end = document.getElementById('endTime').value;
+    <script>
+        let chartInstance = null;
 
-    const startTime = new Date(`1970-01-01T${start}:00`);
-    const endTime = new Date(`1970-01-01T${end}:00`);
-    const hoursWorked = (endTime - startTime) / (1000 * 60 * 60);
+        document.querySelector(".green-btn").addEventListener("click", function (e) {
+            e.preventDefault();
 
-    const teamActiveHours = hoursWorked * personnel;
-    const teamProductivity = units / teamActiveHours;
-    const truckUPH = units / hoursWorked;               // <-- truck speed
-    const uphPerPerson = (units / hoursWorked) / personnel;
+            const manifest = document.getElementById("manifestNumber").value;
+            const units = Number(document.getElementById("numberOfUnits").value);
+            const personnel = Number(document.getElementById("numberOfPersonnel").value);
+            const start = document.getElementById("startTime").value;
+            const end = document.getElementById("endTime").value;
 
-    const ctx = document.getElementById('efficiencyChart').getContext('2d');
+          // Validation
 
-    new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: ['Team Productivity (UPH)', 'Truck UPH', 'UPH per Person'],
-        datasets: [{
-            label: `Efficiency for ${manifest}`,
-            data: [teamProductivity, truckUPH, uphPerPerson],
-            backgroundColor: ['#22c55e', '#3b82f6', '#a855f7']
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: { beginAtZero: true }
+            if (!manifest || !units || !personnel || !start || !end) {
+            alert("Please fill out all required fields before submitting.");
+            return;
         }
-    }
-});
+
+            const startTime = new Date(`1970-01-01T${start}:00`);
+            const endTime = new Date(`1970-01-01T${end}:00`);
+            const hoursWorked = (endTime - startTime) / (1000 * 60 * 60);
+
+            if (hoursWorked <= 0) {
+            alert("End time must be after start time.");
+            return;
+        }
+            // 1. Productivity (team)
+            const teamActiveHours = hoursWorked * personnel;
+            const teamProductivity = units / teamActiveHours;
+            // 2. Average hours per member to acheive 90 UPH
+            const avgHoursPerMember = units / (90 * personnel);
+            // 3. unitsPerMember
+            const unitsPerMember = units / personnel;
+            const leader = document.getElementById("leaderName").value;
+
+            //Destroy previous chart
+            if (chartInstance) chartInstance.destroy();
+
+            const ctx = document.getElementById("efficiencyChart").getContext("2d");
+            chartInstance = new Chart(ctx, {
+                type: "bar",
+                data: {
+                labels: ["Team Productivity (Units/Hour)", "Avg Hours per Member (90 UPH)", "Units per Member"],
+                datasets: [{
+                    label: `Efficiency for ${manifest}`,
+                    data: [teamProductivity, avgHoursPerMember, unitsPerMember],
+                    backgroundColor: ["#22c55e", "#3b82f6", "#a855f7"],
+                }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true },
+        },
+        },
+        });
+
+            
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${manifest}</td>
+            <td>${leader}</td>
+            <td>${units}</td>
+            <td>${personnel}</td>
+            <td>${hoursWorked.toFixed(2)}</td>
+            <td>${teamProductivity.toFixed(1)}</td>
+            <td>${avgHoursPerMember.toFixed(1)}</td>
+            <td>${unitsPerMember.toFixed(1)}</td>
+    `;
+
+    document.getElementById("sessionBody").appendChild(row);
+
+    // Clear inputs
+    document.getElementById("manifestNumber").value = "";
+    document.getElementById("numberOfUnits").value = "";
+    document.getElementById("numberOfPersonnel").value = "";
+    document.getElementById("startTime").value = "";
+    document.getElementById("endTime").value = "";
+    document.getElementById("leaderName").value = "";
 });
 
-</script>
-
+    // Log Session link — scrolls to form and focuses first input
+document.querySelector(".nav-link").addEventListener("click", function (e) {
+    e.preventDefault();
+    document.getElementById("manifestNumber").scrollIntoView({ behavior: "smooth" });
+    document.getElementById("manifestNumber").focus();
+});
+    </script>
 </body>
 </html>
