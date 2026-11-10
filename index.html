@@ -1,247 +1,136 @@
 <!doctype html>
 <html lang="en">
-    <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Truck Efficiency</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
-        rel="stylesheet"
-    />
-    <link rel="stylesheet" href="style.css" />
-    </head>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Truck Efficiency</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="side">
+    <div class="logo"><img src="./assets/TF1.png" alt="Truck Efficiency" /></div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#entry" data-view="entry">Enter truck</a>
+      <a href="#dashboard" data-view="dashboard">Dashboard</a>
+      <a href="#plan" data-view="plan">Plan</a>
+      <a href="#goals" data-view="goals">Goal</a>
+    </nav>
+    <p class="tag">Right product.<br />Right department.<br />Right customers.</p>
+  </aside>
+  <div class="content">
+<main><div class="wrap">
+  <div id="banner" class="banner"><span class="msg" id="bannerMsg">Connecting to the shared log…</span><button class="small" id="sampleBtn" type="button">Preview with sample data</button></div>
 
-    <body>
-    <main class="container">
-        <!-- LEFT COLUMN -->
-        <div class="left">
-        <header>
-            <img src="./assets/TF1.png" alt="KeyFleet Logo" />
-        </header>
-        <a href="#" class="nav-link">Log Session</a>
-        </div>
-
-        <!-- RIGHT COLUMN -->
-    <div class="right-column">
-
-      <!-- RIGHT COLUMN (TWO-COLUMN LAYOUT) -->
-      <div class="flex-container">
-
-        <!-- LEFT SIDE FORM -->
-        <div class="form-column">
-            <div class="flex-item">
-            <div class="features">
-            <label for="manifestNumber"
-                >Manifest Number <span class="required">*</span></label>
-              <p>Enter the alphanumeric manifest ID for this truck.</p>
-              <input
-                type="text"
-                id="manifestNumber"
-                placeholder="e.g. MNF-2026-4482"
-                required
-              />
-            </div>
+  <!-- ENTRY -->
+  <section id="v-entry" data-v hidden>
+    <form id="truckForm" autocomplete="off" class="two">
+      <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+        <div class="panel">
+          <div class="head"><div><h2 id="formTitle">Enter a received truck</h2><p class="sub">Use the totals from the manifest. Total units is the output for UPH.</p></div></div>
+          <div class="row">
+            <label class="f">Manifest #<input id="tRef" required maxlength="40" placeholder="Manifest number"></label>
+            <label class="f">Date received<input id="tDate" type="date" required></label>
+            <label class="f">Total units<input id="tUnits" type="number" min="1" step="1" inputmode="numeric" required></label>
           </div>
-
-          <div class="flex-item">
-            <div class="features">
-              <label for="numberOfUnits"
-                >Number of Units <span class="required">*</span></label
-              >
-              <p>Total units on the truck.</p>
-              <input
-                type="number"
-                id="numberOfUnits"
-                placeholder="e.g. 2000"
-                required
-              />
-            </div>
-          </div>
-
-          <div class="flex-item">
-            <div class="session-times features">
-              <label class="section-label"
-                >Session Times <span class="required">*</span></label
-              >
-              <p>Record when the session started and ended.</p>
-
-              <div class="flex">
-                <div>
-                  <label for="startTime"
-                    >Start Time <span class="required">*</span></label
-                  >
-                  <input type="time" id="startTime" required />
-                </div>
-
-                <div>
-                  <label for="endTime"
-                    >End Time <span class="required">*</span></label
-                  >
-                  <input type="time" id="endTime" required />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex-item">
-            <div class="features">
-              <label for="numberOfPersonnel"
-                >Number of Personnel <span class="required">*</span></label
-              >
-              <p>Total team members working this truck. Minimum 1.</p>
-              <input
-                type="number"
-                id="numberOfPersonnel"
-                placeholder="e.g. 5"
-                required
-              />
-            </div>
-          </div>
-
-          <div class="flex-item">
-            <div class="features">
-              <label for="leaderName"
-                >Leader's Name <span class="required">*</span></label
-              >
-              <p>Enter name of the lead responsible for this truck.</p>
-              <input
-                type="text"
-                id="leaderName"
-                placeholder="e.g. John Doe"
-                required
-              />
-            </div>
-          </div>
-
-          <div class="form-footer">
-            <p><span class="required">*</span> All fields are required</p>
-            <button type="submit" class="green-btn">Submit</button>
+          <div class="row">
+            <label class="f">Pallets<input id="tPallets" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+            <label class="f">Total OMS orders<input id="tOms" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+            <label class="f">Total manifest validation units<input id="tMvu" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
           </div>
         </div>
-
-        <!-- RIGHT SIDE GRAPH -->
-        <div class="graph-container">
-          <canvas id="efficiencyChart"></canvas>
+        <div class="panel">
+          <div><h2>Labor by step</h2><p class="sub">Add one row per person for each step they worked: first name, full-time or part-time, and the time they spent on that step. If someone moved between steps, add a row for them in each step with the times they were there.</p></div>
+          <div id="laborRows" style="display:flex;flex-direction:column;gap:12px"></div>
+          <datalist id="nameList"></datalist>
+        </div>
+        <div class="panel">
+          <div><h2>People on this truck</h2><p class="sub">Worked out from the rows above. Unpaid lunches come out automatically from each person's total hours across all steps: 40 min for full-time over 5 hours. Part-time 15 min breaks are paid, so they stay in the labor hours.</p></div>
+          <div id="crewCheck" class="banner" hidden></div>
+          <div class="tbl" id="peopleTable"></div>
         </div>
       </div>
+      <div class="panel sticky">
+        <h2>Productivity</h2>
+        <div><div class="lbl" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600">UPH</div><div class="uph-big" id="rUph">—</div><div class="sub" id="rUphNote"></div></div>
+        <div class="calc" id="rCalc"></div>
+        <div class="tbl" id="rSteps"></div>
+        <div class="row" style="justify-content:flex-end">
+          <button type="button" id="clearForm">Clear</button>
+          <button class="primary" type="submit" id="saveBtn">Save truck</button>
+        </div>
       </div>
+    </form>
+  </section>
 
-       <div class="session-history">
-      <h2>Session History</h2>
-      <table id="sessionTable">
-        <thead>
-          <tr>
-            <th>Manifest</th>
-            <th>Leader</th>
-            <th>Units</th>
-            <th>Personnel</th>
-            <th>Hours</th>
-            <th>Team Productivity</th>
-            <th>Avg Hours/Member (90 UPH)</th>
-            <th>Units/Member</th>
-          </tr>
-        </thead>
-        <tbody id="sessionBody"></tbody>
-      </table>
+  <!-- DASHBOARD -->
+  <section id="v-dashboard" data-v hidden>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="head">
+        <div><h2>Productivity</h2><p class="sub">UPH = manifest units ÷ downstocking labor hours: OMS orders (break down pallets), manifest validation, and downstock totes and pallets. Unloading is shown but not counted.</p></div>
+        <div class="seg" id="rangeSeg" role="group" aria-label="Date range"></div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="panel"><div class="head"><h3>Where the labor goes</h3><span class="sub">Unloading is shown for reference and not counted in UPH</span></div><div class="tbl" id="stageTable"></div></div>
+      <div class="panel chart"><div class="head"><h3 id="chartTitle">UPH by truck</h3><span class="sub" id="chartNote"></span></div><div id="chart"></div></div>
+      <div class="panel"><div class="head"><h3>Trucks</h3><span class="sub">Labor hours by step. Open a truck to view or change it.</span></div><div class="tbl" id="truckTable"></div></div>
     </div>
+  </section>
 
-      
-    </main>
+  <!-- PLAN -->
+  <section id="v-plan" data-v hidden>
+    <div class="two">
+      <form class="panel" id="planForm" autocomplete="off">
+        <div><h2>Plan a truck</h2><p class="sub">Check a schedule before the truck. Enter the manifest units and the people you plan to schedule. The app shows what that schedule delivers at the 90 UPH standard and at the UPH your team actually runs.</p></div>
+        <div class="row">
+          <label class="f">Manifest units<input id="pUnits" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 2100"></label>
+          <label class="f">Compare with a saved truck<select id="pTruck"><option value="">None</option></select></label>
+        </div>
+        <div class="row">
+          <label class="f">Full-time scheduled<input id="pFt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+          <label class="f">Hours each (full-time)<input id="pFtH" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
+          <label class="f">Part-time scheduled<input id="pPt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+          <label class="f">Hours each (part-time)<input id="pPtH" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
+        </div>
+        <div class="row">
+          <label class="f" style="flex:0 1 240px">Actual UPH to plan with<input id="pActual" type="number" min="1" step="0.1" inputmode="decimal"><small style="font-weight:400" id="pActualNote"></small></label>
+          <label class="f" style="flex:0 1 240px">Hours on other work<small style="font-weight:400">Picks and other tasks, all people combined</small><input id="pOther" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
+        </div>
+        <p class="sub">Full-time shifts over 5 hours lose a 40 min unpaid lunch. Part-time breaks are paid and stay in.</p>
+      </form>
+      <div class="panel sticky">
+        <h2>Will the truck get done?</h2>
+        <div id="planVerdict" class="banner" hidden></div>
+        <div class="calc" id="planCalc"></div>
+        <div class="tbl" id="planTable"></div>
+        <div id="planCompare"></div>
+      </div>
+    </div>
+  </section>
 
-    
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <script>
-        let chartInstance = null;
-
-        document.querySelector(".green-btn").addEventListener("click", function (e) {
-            e.preventDefault();
-
-            const manifest = document.getElementById("manifestNumber").value;
-            const units = Number(document.getElementById("numberOfUnits").value);
-            const personnel = Number(document.getElementById("numberOfPersonnel").value);
-            const start = document.getElementById("startTime").value;
-            const end = document.getElementById("endTime").value;
-
-          // Validation
-
-            if (!manifest || !units || !personnel || !start || !end) {
-            alert("Please fill out all required fields before submitting.");
-            return;
-        }
-
-            const startTime = new Date(`1970-01-01T${start}:00`);
-            const endTime = new Date(`1970-01-01T${end}:00`);
-            const hoursWorked = (endTime - startTime) / (1000 * 60 * 60);
-
-            if (hoursWorked <= 0) {
-            alert("End time must be after start time.");
-            return;
-        }
-            // 1. Productivity (team)
-            const teamActiveHours = hoursWorked * personnel;
-            const teamProductivity = units / teamActiveHours;
-            // 2. Average hours per member to acheive 90 UPH
-            const avgHoursPerMember = units / (90 * personnel);
-            // 3. unitsPerMember
-            const unitsPerMember = units / personnel;
-            const leader = document.getElementById("leaderName").value;
-
-            //Destroy previous chart
-            if (chartInstance) chartInstance.destroy();
-
-            const ctx = document.getElementById("efficiencyChart").getContext("2d");
-            chartInstance = new Chart(ctx, {
-                type: "bar",
-                data: {
-                labels: ["Team Productivity (Units/Hour)", "Avg Hours per Member (90 UPH)", "Units per Member"],
-                datasets: [{
-                    label: `Efficiency for ${manifest}`,
-                    data: [teamProductivity, avgHoursPerMember, unitsPerMember],
-                    backgroundColor: ["#22c55e", "#3b82f6", "#a855f7"],
-                }],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true },
-        },
-        },
-        });
-
-            
-
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${manifest}</td>
-            <td>${leader}</td>
-            <td>${units}</td>
-            <td>${personnel}</td>
-            <td>${hoursWorked.toFixed(2)}</td>
-            <td>${teamProductivity.toFixed(1)}</td>
-            <td>${avgHoursPerMember.toFixed(1)}</td>
-            <td>${unitsPerMember.toFixed(1)}</td>
-    `;
-
-    document.getElementById("sessionBody").appendChild(row);
-
-    // Clear inputs
-    document.getElementById("manifestNumber").value = "";
-    document.getElementById("numberOfUnits").value = "";
-    document.getElementById("numberOfPersonnel").value = "";
-    document.getElementById("startTime").value = "";
-    document.getElementById("endTime").value = "";
-    document.getElementById("leaderName").value = "";
-});
-
-    // Log Session link — scrolls to form and focuses first input
-document.querySelector(".nav-link").addEventListener("click", function (e) {
-    e.preventDefault();
-    document.getElementById("manifestNumber").scrollIntoView({ behavior: "smooth" });
-    document.getElementById("manifestNumber").focus();
-});
-    </script>
+  <!-- GOAL -->
+  <section id="v-goals" data-v hidden>
+    <form class="panel" id="goalForm">
+      <div><h2>UPH goal</h2><p class="sub" id="goalNote">UPH at or above the goal shows green. UPH below the goal shows red.</p></div>
+      <div class="row">
+        <label class="f" style="flex:0 1 220px">UPH goal<input id="gUph" type="number" min="1" step="0.1" inputmode="decimal"></label>
+        <button class="primary" type="submit" id="saveGoal">Save goal</button>
+      </div>
+      <div class="tbl"><table><thead><tr><th>Measure</th><th>How it's calculated</th></tr></thead><tbody>
+        <tr><td><b>UPH</b></td><td>Manifest total units ÷ downstocking labor hours. Downstocking covers OMS orders (break down pallets), manifest validation, and downstock totes and pallets. Unloading is not counted.</td></tr>
+        <tr><td><b>Labor hours</b></td><td>Employees × (end time − start time), added up for every row, minus unpaid full-time lunches.</td></tr>
+        <tr><td><b>Lunches</b></td><td>Full-time: 40 min unpaid lunch taken out when their total hours across all steps are over 5. It comes out of the steps they worked, by their hours in each. Part-time 15 min breaks are paid, so nothing is taken out.</td></tr>
+        <tr><td><b>Double counting check</b></td><td>Each person is entered by first name. If the same person is in two steps at the same time, the app shows who and when, and won't save.</td></tr>
+        <tr><td><b>Step rates</b></td><td>Manifest totals (pallets, OMS orders, validation units, units) ÷ that step's labor hours.</td></tr>
+      </tbody></table></div>
+    </form>
+  </section>
+</div></main>
+<div class="toast" id="toast" hidden></div>
+  </div>
+</div>
+<script src="app.js"></script>
 </body>
 </html>
