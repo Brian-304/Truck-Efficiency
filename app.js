@@ -161,21 +161,9 @@ $('#truckForm').addEventListener('submit',async e=>{
 });
 
 /* ---------- dashboard ---------- */
-const RANGES=[['7d','7 days'],['30d','30 days'],['90d','90 days'],['all','All']];
-function inRange(){const list=manifests();if(S.range==='all')return list;const d=+S.range.replace('d',''),t=new Date();t.setHours(0,0,0,0);const from=ymd(t.getTime()-(d-1)*DAY);return list.filter(m=>m.date>=from)}
-$('#rangeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-range]');if(b){S.range=b.dataset.range;try{localStorage.setItem('trt-range2',S.range)}catch(_){}renderDashboard()}});
+function inRange(){return manifests()}
 function renderDashboard(){
-  $('#rangeSeg').innerHTML=RANGES.map(([k,l])=>`<button type="button" data-range="${k}" aria-pressed="${S.range===k}">${l}</button>`).join('');
   const rec=inRange().map(m=>({m,st:stats(m)})).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')||(b.m.createdAt||0)-(a.m.createdAt||0));
-  const units=rec.reduce((s,r)=>s+(r.m.units||0),0),labor=rec.reduce((s,r)=>s+r.st.total,0),uph=labor>0?units/labor:null;
-  const over=rec.filter(r=>r.st.uph!=null&&!good(r.st.uph)).length;
-  $('#kpis').innerHTML=`
-   <div class="kpi"><span class="lbl">UPH</span><span class="val ${uph==null?'':good(uph)?'uph-good':'uph-bad'}">${uphFmt(uph)}</span><span class="note">Goal ${uphFmt(S.goal)}</span></div>
-   <div class="kpi"><span class="lbl">Units</span><span class="val">${num(units)}</span><span class="note">From the manifests</span></div>
-   <div class="kpi"><span class="lbl">Downstocking labor hrs</span><span class="val">${hrs1(labor)}</span><span class="note">${rec.length?hrs1(labor/rec.length)+' per truck':'Employees × hours'}</span></div>
-   <div class="kpi"><span class="lbl">Trucks</span><span class="val">${rec.length}</span><span class="note">${over} below the UPH goal</span></div>`;
-  $('#stageTable').innerHTML=rec.length?stepTable(STEPS.map(s=>{const h=rec.reduce((x,r)=>x+r.st.by[s.key],0),w=rec.filter(r=>r.st.by[s.key]>0),tot={};['units','pallets','oms','mvu'].forEach(k=>tot[k]=w.reduce((x,r)=>x+(r.m[k]||0),0));return{s,h,tot}}),labor,
-    `<tr><td><b>Downstocking labor (UPH)</b></td><td class="n"><b>${hrs1(labor)}</b></td><td class="n">100%</td><td class="vol"><b>${uphFmt(uph)} UPH</b></td></tr>`):emptyDash();
   renderChart(rec);
   $('#truckTable').innerHTML=rec.length?`<table><thead><tr><th>Manifest #</th><th>Received</th><th class="n">Units</th>${STEPS.map(s=>`<th class="n">${esc(s.code)}</th>`).join('')}<th class="n">UPH labor hrs</th><th class="n">UPH</th><th></th></tr></thead><tbody>${rec.map(({m,st})=>`<tr><td><b>${esc(m.ref)}</b></td><td style="white-space:nowrap">${m.date?fmtDate(m.date):'—'}</td><td class="n">${m.units?num(m.units):'—'}</td>${STEPS.map(s=>`<td class="n">${hrs1(st.by[s.key])}</td>`).join('')}<td class="n"><b>${hrs1(st.total)}</b></td><td class="n">${uphPill(st.uph)}</td>
     <td style="white-space:nowrap"><button class="small" type="button" data-open="${m.id}">Open</button> ${!S.sample&&db&&(canEdit||(myId&&m.createdBy===myId))?`<button class="small danger" type="button" data-del="${m.id}">Delete</button>`:''}</td></tr>`).join('')}</tbody></table>`:emptyDash();
@@ -183,7 +171,7 @@ function renderDashboard(){
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.open){const m=manifests().find(x=>x.id===b.dataset.open);if(m)loadForm(m)}
   else if(b.dataset.del){const id=b.dataset.del;arm(b,'Confirm delete',async()=>{if(!canWrite())return;try{await db.doc('manifests/'+id).delete();if(S.editId===id)resetForm();toast('Truck deleted')}catch(err){writeErr(err)}})}});
-function emptyDash(){return `<div class="empty">No trucks in this range. Enter a received truck on the Enter truck tab${S.sample?'':', or preview with sample data'}.</div>`}
+function emptyDash(){return `<div class="empty">No trucks yet. Enter a received truck on the Enter truck tab${S.sample?'':', or preview with sample data'}.</div>`}
 function renderChart(rec){
   const all=rec.filter(r=>r.st.uph!=null).sort((x,y)=>(x.m.date||'').localeCompare(y.m.date||'')||(x.m.createdAt||0)-(y.m.createdAt||0));
   const pts=all.slice(-30);
@@ -232,45 +220,51 @@ const SAMPLE=(()=>{
 
 /* ---------- wiring ---------- */
 /* ---------- plan ---------- */
-let planActualDirty=false;
-function recentUph(){const t=new Date();t.setHours(0,0,0,0);const from=ymd(t.getTime()-29*DAY);let l=manifests().filter(m=>m.date>=from);let lbl='last 30 days';
-  if(!l.length){l=manifests();lbl='all trucks'}const u=l.reduce((a,m)=>a+(m.units||0),0),hh=l.reduce((a,m)=>a+stats(m).total,0);return hh>0?{uph:u/hh,n:l.length,lbl}:null}
-function renderPlanInputs(){
-  const sel=$('#pTruck'),cur=sel.value,list=[...manifests()].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  sel.innerHTML='<option value="">None</option>'+list.map(m=>`<option value="${esc(m.id)}">${esc(m.ref)}${m.date?' · '+fmtDate(m.date):''}</option>`).join('');if([...sel.options].some(o=>o.value===cur))sel.value=cur;
-  const r=recentUph();$('#pActualNote').textContent=r?`Your average: ${uphFmt(r.uph)} UPH over ${r.n} truck${r.n>1?'s':''} (${r.lbl}). Change it to test other rates.`:'No trucks saved yet. Enter your usual UPH, for example 51.';
-  if(!planActualDirty&&document.activeElement!==$('#pActual'))$('#pActual').value=r?(Math.round(r.uph*10)/10):'';
-  updatePlan()}
+function renderPlanInputs(){updatePlan()}
 function updatePlan(){
-  const v=id=>Math.max(0,Number($(id).value)||0),units=v('#pUnits'),ft=v('#pFt'),fth=v('#pFtH'),pt=v('#pPt'),pth=v('#pPtH'),act=v('#pActual'),other=v('#pOther'),std=S.goal;
-  const lunch=fth>LUNCH.ftOver/60?LUNCH.ft/60:0,sched=ft*fth+pt*pth,lunchH=ft*lunch,truckH=Math.max(0,sched-lunchH-other);
-  const vb=$('#planVerdict');
-  if(!(units>0)||!(sched>0)){vb.hidden=true;$('#planCalc').innerHTML='Enter the manifest units and the people you plan to schedule.';$('#planTable').innerHTML='';renderPlanCompare(null);return}
-  $('#planCalc').innerHTML=`${ft} full-time × ${fth} hrs + ${pt} part-time × ${pth} hrs = ${hrs1(sched)} scheduled hrs`+(lunchH?`<br>− ${hrs1(lunchH)} hrs unpaid lunches`:'')+(other?`<br>− ${hrs1(other)} hrs other work`:'')+`<br>= <b>${hrs1(truckH)} labor hrs on the truck</b>`;
-  const rows=[['Standard',std],['Your actual',act]].filter(x=>x[1]>0).map(([l,u])=>{const cap=truckH*u,need=units/u,gap=truckH-need;return{l,u,cap,need,gap}});
-  $('#planTable').innerHTML=`<table><thead><tr><th>At</th><th class="n">Units it covers</th><th class="n">Hours needed</th><th class="n">Short / spare</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.l}</b> ${uphFmt(r.u)} UPH</td><td class="n">${num(r.cap)}</td><td class="n">${hrs1(r.need)}</td><td class="n" style="color:var(${r.gap>=0?'--good':'--bad'})">${r.gap>=0?hrs1(r.gap)+' hrs spare':hrs1(-r.gap)+' hrs short'}</td></tr>`).join('')}</tbody></table>`;
-  const a=rows.find(r=>r.l==='Your actual'),s=rows.find(r=>r.l==='Standard');vb.hidden=false;
-  if(a){const avgH=sched/Math.max(1,ft+pt);
-    if(a.gap>=0){vb.className='banner ok';vb.textContent=`Enough at your actual ${uphFmt(a.u)} UPH: covers ${num(a.cap)} of ${num(units)} units with ${hrs1(a.gap)} labor hrs to spare.`}
-    else{vb.className='banner bad';vb.textContent=`Not enough at your actual ${uphFmt(a.u)} UPH: covers ${num(a.cap)} of ${num(units)} units. Add about ${hrs1(-a.gap)} labor hrs (about ${Math.ceil(-a.gap/Math.max(avgH,0.25))} more ${Math.ceil(-a.gap/Math.max(avgH,0.25))>1?'people':'person'} at ${hrs1(avgH)} hrs), or the team needs to reach ${uphFmt(units/truckH)} UPH.`+(s&&s.gap>=0?` At the ${uphFmt(std)} standard it would be enough, which is why the schedule looks fine on paper.`:'')}}
-  else{vb.className='banner '+(s.gap>=0?'ok':'bad');vb.textContent=s.gap>=0?`Enough at the ${uphFmt(std)} UPH standard. Enter your actual UPH to check it against how the team really runs.`:`Not enough even at the ${uphFmt(std)} UPH standard.`}
-  renderPlanCompare(truckH);
+  const v=id=>Math.max(0,Number($(id).value)||0),units=v('#pUnits'),uph=v('#pUph'),ft=Math.round(v('#pFt')),fth=v('#pFtH'),pt=Math.round(v('#pPt')),pth=v('#pPtH'),other=v('#pOther');
+  const lunch=fth>LUNCH.ftOver/60?LUNCH.ft/60:0,ftNet=Math.max(0,fth-lunch),sched=ft*fth+pt*pth,crewH=ft*ftNet+pt*pth,truckH=Math.max(0,crewH-other);
+  const vb=$('#planVerdict'),out=(c,t,a)=>{$('#planCalc').innerHTML=c;$('#planTable').innerHTML=t;$('#planAnalysis').innerHTML=a};
+  if(!(units>0)||!(uph>0)||!(truckH>0)){vb.hidden=true;out(crewH>0&&other>=crewH?`The ${hrs1(other)} hrs on picks and other tasks use up all ${hrs1(crewH)} crew hours, so no time is left for the truck.`:'Enter the manifest units, the UPH plan, and at least one full-time or part-time group with hours.','','');return}
+  const cap=truckH*uph,need=units/uph,gap=truckH-need,pace=units/truckH,ok=gap>=-0.005;
+  vb.hidden=false;vb.className='banner '+(ok?'ok':'bad');
+  vb.textContent=ok?`Yes. At ${uphFmt(uph)} UPH this crew covers ${num(cap)} of ${num(units)} units, with ${hrs1(gap)} labor hrs to spare.`
+    :`No. At ${uphFmt(uph)} UPH this crew covers ${num(cap)} of ${num(units)} units, about ${num(units-cap)} short. It needs ${hrs1(-gap)} more labor hrs.`;
+  out(`${ft} full-time × ${fth} hrs + ${pt} part-time × ${pth} hrs = ${hrs1(sched)} scheduled hrs`+(ft&&lunch?`<br>− ${hrs1(ft*lunch)} hrs unpaid lunches (${ft} × 40 min)`:'')+(other?`<br>− ${hrs1(other)} hrs on picks and other tasks`:'')+`<br>= <b>${hrs1(truckH)} labor hrs on the truck</b><br>${hrs1(truckH)} hrs × ${uphFmt(uph)} UPH = <b>${num(cap)} units</b>`,
+    `<table><thead><tr><th></th><th class="n">Each person</th><th class="n">Hours on truck</th><th class="n">Units at ${uphFmt(uph)} UPH</th></tr></thead><tbody>
+      ${ft?`<tr><td>Full-time</td><td class="n">${ft} ×</td><td class="n">${hrs1(ftNet)}</td><td class="n">${num(ftNet*uph)} each</td></tr>`:''}
+      ${pt?`<tr><td>Part-time</td><td class="n">${pt} ×</td><td class="n">${hrs1(pth)}</td><td class="n">${num(pth*uph)} each</td></tr>`:''}
+${other?`<tr><td>Picks and other tasks</td><td></td><td class="n">−${hrs1(other)}</td><td class="n">−${num(other*uph)}</td></tr>`:''}
+      <tr><td><b>Crew total on truck</b></td><td class="n">${ft+pt}</td><td class="n"><b>${hrs1(truckH)}</b></td><td class="n"><b>${num(cap)}</b></td></tr>
+      <tr><td>Manifest</td><td></td><td class="n">${hrs1(need)} needed</td><td class="n">${num(units)}</td></tr></tbody></table>`,
+    planAnalysis({units,uph,ft,fth,ftNet,pt,pth,truckH,need,gap,pace,ok,other}));
 }
-function renderPlanCompare(planH){
-  const id=$('#pTruck').value,m=id&&manifests().find(x=>x.id===id),box=$('#planCompare');if(!m){box.innerHTML='';return}
-  const st=stats(m);
-  box.innerHTML=`<h3 style="margin-top:6px">Planned vs actual: ${esc(m.ref)}</h3><div class="tbl"><table><thead><tr><th></th><th class="n">Labor hrs on truck</th><th class="n">UPH</th></tr></thead><tbody>
-    <tr><td>Planned</td><td class="n">${planH!=null?hrs1(planH):'—'}</td><td class="n">${planH>0&&m.units?uphFmt(m.units/planH):'—'}</td></tr>
-    <tr><td>Actual (entered)</td><td class="n">${hrs1(st.total)}</td><td class="n">${uphPill(st.uph)}</td></tr></tbody></table></div>
-    <p class="sub">${planH==null?'Enter the schedule to compare.':planH>st.total+0.05?`${hrs1(planH-st.total)} scheduled hrs did not show up on the truck: people pulled to other work, late starts or early leaves.`:planH<st.total-0.05?`The truck used ${hrs1(st.total-planH)} more labor hrs than planned.`:'Planned and actual hours match.'} Truck units: ${num(m.units||0)}.</p>`;
+function planAnalysis(p){
+  const pts=[],short=-p.gap;
+  pts.push(`<li><b>Pace needed:</b> ${num(p.units)} units ÷ ${hrs1(p.truckH)} labor hrs = <b>${uphFmt(p.pace)} UPH</b>. ${p.pace<=p.uph?`That's at or under the ${uphFmt(p.uph)} plan, so the crew has room.`:`That's ${uphFmt(p.pace-p.uph)} UPH faster than the ${uphFmt(p.uph)} plan.`}</li>`);
+  if(p.ok){
+    const spare=p.gap*p.uph;
+    pts.push(`<li><b>Spare capacity:</b> about ${num(spare)} more units, or ${hrs1(p.gap)} labor hrs, if the crew holds ${uphFmt(p.uph)} UPH.</li>`);
+    if(p.pth>0&&p.gap>=p.pth)pts.push(`<li><b>Room to trim:</b> the truck could still finish with about ${Math.floor(p.gap/p.pth)} fewer part-time (${p.pth} hrs each) at ${uphFmt(p.uph)} UPH. Only trim if the crew really runs at that pace.</li>`);
+    else if(p.ftNet>0&&p.gap>=p.ftNet)pts.push(`<li><b>Room to trim:</b> the truck could still finish with about ${Math.floor(p.gap/p.ftNet)} fewer full-time at ${uphFmt(p.uph)} UPH. Only trim if the crew really runs at that pace.</li>`);
+    pts.push(`<li><b>Risk:</b> if the crew runs slower than ${uphFmt(p.uph)} UPH, this plan only works down to ${uphFmt(p.pace)} UPH. Below that, units are left over.</li>`);
+  }else{
+    const opts=[];
+    if(p.pth>0){const n=Math.ceil(short/p.pth-1e-9);opts.push(`add <b>${n} part-time</b> at ${p.pth} hrs (${hrs1(n*p.pth)} hrs)`)}
+    if(p.ftNet>0){const n=Math.ceil(short/p.ftNet-1e-9);opts.push(`add <b>${n} full-time</b> at ${p.fth} hrs (${hrs1(n*p.ftNet)} hrs after lunch)`)}
+    const heads=p.ft+p.pt;if(heads>0)opts.push(`keep everyone about <b>${Math.ceil(short/heads*60)} min longer</b>`);
+    opts.push(`raise the pace to <b>${uphFmt(p.pace)} UPH</b>`);
+    pts.push(`<li><b>To finish the truck,</b> any one of: ${opts.join('; ')}.</li>`);
+    pts.push(`<li><b>Without changes,</b> about ${num(p.units-p.truckH*p.uph)} units would be left at the end of the shift.</li>`);
+  }
+  if(p.other>0){const lost=p.other*p.uph;pts.push(`<li><b>Picks and other tasks:</b> ${hrs1(p.other)} hrs off the truck is about ${num(lost)} units at ${uphFmt(p.uph)} UPH.${p.ok?'':` Without them, the crew would ${p.gap+p.other>=0?'finish the truck':`still be ${hrs1(-(p.gap+p.other))} hrs short`}.`}</li>`)}
+  if(p.ft&&p.fth>5&&p.fth<=5.67)pts.push(`<li><b>Lunch:</b> full-time shifts of ${p.fth} hrs trigger the 40 min unpaid lunch. A shift of 5 hrs or less has no lunch.</li>`);
+  return `<h3 style="margin-top:4px">Analysis</h3><ul style="margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px">${pts.join('')}</ul>`;
 }
-['pUnits','pFt','pFtH','pPt','pPtH','pOther'].forEach(i=>$('#'+i).addEventListener('input',updatePlan));
-$('#pActual').addEventListener('input',()=>{planActualDirty=$('#pActual').value!=='';updatePlan()});
-$('#pTruck').addEventListener('change',()=>{const m=manifests().find(x=>x.id===$('#pTruck').value);if(m&&!$('#pUnits').value)$('#pUnits').value=m.units||'';updatePlan()});
+['pUnits','pUph','pFt','pFtH','pPt','pPtH','pOther'].forEach(i=>$('#'+i).addEventListener('input',updatePlan));
 $('#planForm').addEventListener('submit',e=>e.preventDefault());
 
 function renderAll(){renderBanner();renderDashboard();renderGoals();updateResult();renderPlanInputs()}
-try{const r=localStorage.getItem('trt-range2');if(r&&RANGES.some(x=>x[0]===r))S.range=r}catch(_){}
 resetForm();route();renderAll();
 
 (async()=>{
