@@ -170,10 +170,7 @@ function renderDashboard(){
   const units=rec.reduce((s,r)=>s+(r.m.units||0),0),labor=rec.reduce((s,r)=>s+r.st.total,0),uph=labor>0?units/labor:null;
   const over=rec.filter(r=>r.st.uph!=null&&!good(r.st.uph)).length;
   $('#kpis').innerHTML=`
-   <div class="kpi"><span class="lbl">UPH</span><span class="val ${uph==null?'':good(uph)?'uph-good':'uph-bad'}">${uphFmt(uph)}</span><span class="note">Goal ${uphFmt(S.goal)}</span></div>
-   <div class="kpi"><span class="lbl">Units</span><span class="val">${num(units)}</span><span class="note">From the manifests</span></div>
-   <div class="kpi"><span class="lbl">Downstocking labor hrs</span><span class="val">${hrs1(labor)}</span><span class="note">${rec.length?hrs1(labor/rec.length)+' per truck':'Employees × hours'}</span></div>
-   <div class="kpi"><span class="lbl">Trucks</span><span class="val">${rec.length}</span><span class="note">${over} below the UPH goal</span></div>`;
+   <div class="kpi"><span class="lbl">UPH</span><span class="val ${uph==null?'':good(uph)?'uph-good':'uph-bad'}">${uphFmt(uph)}</span><span class="note">Goal ${uphFmt(S.goal)}</span></div>`;
   $('#stageTable').innerHTML=rec.length?stepTable(STEPS.map(s=>{const h=rec.reduce((x,r)=>x+r.st.by[s.key],0),w=rec.filter(r=>r.st.by[s.key]>0),tot={};['units','pallets','oms','mvu'].forEach(k=>tot[k]=w.reduce((x,r)=>x+(r.m[k]||0),0));return{s,h,tot}}),labor,
     `<tr><td><b>Downstocking labor (UPH)</b></td><td class="n"><b>${hrs1(labor)}</b></td><td class="n">100%</td><td class="vol"><b>${uphFmt(uph)} UPH</b></td></tr>`):emptyDash();
   renderChart(rec);

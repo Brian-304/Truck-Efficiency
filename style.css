@@ -100,7 +100,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 tr:last-child td{border-bottom:0}
 td.vol{min-width:200px;max-width:340px;font-variant-numeric:tabular-nums;font-size:13.5px}
 td.stp{min-width:190px}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpis{display:grid;grid-template-columns:minmax(0,280px);gap:12px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:.6rem;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .kpi .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
 .kpi .val{font-family:var(--display);font-weight:700;font-size:34px;line-height:1.05;font-variant-numeric:tabular-nums}
