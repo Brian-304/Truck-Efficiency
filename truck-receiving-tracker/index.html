@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Truck Receiving Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: navy dock-signage header, tab bar, then one working column; team colors follow the swimlanes of the workflow chart. */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#14202E; --muted:#5A6878; --line:#D8DEE6;
+  --navy:#13263F; --navy-ink:#F2F5F9; --accent:#1F5FA8; --accent-ink:#FFFFFF;
+  --good:#1D7A46; --good-bg:#E2F3E8; --warn:#9A6200; --warn-bg:#FBEFD6; --bad:#B3261E; --bad-bg:#FBE4E2;
+  --rcv:#DCEBFA; --rcv-ink:#1B4A7E; --oms:#E1F2D9; --oms-ink:#2F6420; --man:#EAE2FA; --man-ink:#55348F;
+  --dept:#FDEBD6; --dept-ink:#8A4A0B; --lead:#FBE0E3; --lead-ink:#8E1F2C;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E141C; --surface:#16202C; --ink:#E6ECF3; --muted:#9AA8B8; --line:#2A3746;
+  --navy:#0A1726; --navy-ink:#E6ECF3; --accent:#6EA8E8; --accent-ink:#0B1622;
+  --good:#6FD39A; --good-bg:#16352A; --warn:#F0BE5E; --warn-bg:#3A2C10; --bad:#F2928B; --bad-bg:#3D1C1B;
+  --rcv:#1A3150; --rcv-ink:#A9CDF5; --oms:#1E3A1E; --oms-ink:#AEDD9A; --man:#2D2448; --man-ink:#C9B6F5;
+  --dept:#3D2A14; --dept-ink:#F5C58E; --lead:#3F1D24; --lead-ink:#F4AEB8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E141C; --surface:#16202C; --ink:#E6ECF3; --muted:#9AA8B8; --line:#2A3746;
+  --navy:#0A1726; --navy-ink:#E6ECF3; --accent:#6EA8E8; --accent-ink:#0B1622;
+  --good:#6FD39A; --good-bg:#16352A; --warn:#F0BE5E; --warn-bg:#3A2C10; --bad:#F2928B; --bad-bg:#3D1C1B;
+  --rcv:#1A3150; --rcv-ink:#A9CDF5; --oms:#1E3A1E; --oms-ink:#AEDD9A; --man:#2D2448; --man-ink:#C9B6F5;
+  --dept:#3D2A14; --dept-ink:#F5C58E; --lead:#3F1D24; --lead-ink:#F4AEB8; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{background:var(--navy);color:var(--navy-ink)}
+header.top .wrap{padding-block:18px 0;display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,5vw,40px);letter-spacing:.01em;margin:0;line-height:1;text-wrap:balance}
+.tag{font-size:13px;opacity:.8;font-style:italic}
+nav.tabs{display:flex;gap:4px;overflow-x:auto}
+nav.tabs a{font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:.04em;text-transform:uppercase;color:var(--navy-ink);opacity:.72;text-decoration:none;padding:8px 14px 10px;border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs a[aria-current="page"]{opacity:1;border-bottom-color:#F0B429}
+nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main .wrap{padding-block:20px 48px;display:flex;flex-direction:column;gap:20px}
+.banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;border-radius:6px;background:var(--surface);border:1px solid var(--line);font-size:14px}
+.banner.ok{background:var(--good-bg);border-color:transparent;color:var(--good)}
+.banner.bad{background:var(--bad-bg);border-color:transparent;color:var(--bad);font-weight:500}
+.banner.sample{background:var(--warn-bg);border-color:transparent;color:var(--warn)}
+.banner .msg{min-width:0}
+h2{font-family:var(--display);font-weight:700;font-size:26px;margin:0;letter-spacing:.01em}
+h3{font-family:var(--display);font-weight:600;font-size:19px;margin:0;letter-spacing:.02em}
+.sub{color:var(--muted);font-size:14px;margin:2px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:500;color:var(--muted);flex:1 1 160px;min-width:0}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;min-height:42px;width:100%}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:6px;padding:9px 16px;min-height:42px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.small{min-height:32px;padding:4px 10px;font-size:13px}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button.armed{background:var(--bad);color:#fff;border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.code{font-family:var(--mono);font-size:12px;letter-spacing:.03em}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap}
+.t-rcv{background:var(--rcv);color:var(--rcv-ink)} .t-oms{background:var(--oms);color:var(--oms-ink)}
+.t-man{background:var(--man);color:var(--man-ink)} .t-dept{background:var(--dept);color:var(--dept-ink)} .t-lead{background:var(--lead);color:var(--lead-ink)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.p-good{background:var(--good-bg);color:var(--good)} .p-warn{background:var(--warn-bg);color:var(--warn)} .p-bad{background:var(--bad-bg);color:var(--bad)} .p-none{background:var(--bg);color:var(--muted)}
+/* stage picker */
+.stages{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.stage-opt{position:relative}
+.stage-opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+[hidden]{display:none!important}
+.stage-opt>span{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:6px;border:2px solid transparent;height:100%}
+.stage-opt>span b{font-weight:600;font-size:14.5px;line-height:1.3}
+.stage-opt input:checked+span{border-color:var(--ink)}
+.stage-opt input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+/* trucks */
+.trucks{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+@media (max-width:420px){.trucks{grid-template-columns:1fr}}
+.truck{background:var(--surface);border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column;min-width:0}
+.truck .th{display:flex;justify-content:space-between;gap:10px;padding:14px 16px 10px;border-bottom:1px solid var(--line);align-items:flex-start}
+.truck .ref{font-family:var(--display);font-weight:700;font-size:24px;line-height:1}
+.truck .meta{color:var(--muted);font-size:13px}
+.steps{list-style:none;margin:0;padding:8px 16px 4px;display:flex;flex-direction:column}
+.steps li{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.steps li:last-child{border-bottom:0}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted)}
+.dot.done{background:var(--good);border-color:var(--good)}
+.steps .nm{min-width:0}
+.steps .nm small{display:block;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.truck .tf{padding:10px 16px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin:0 16px}
+.bar i{display:block;height:100%;background:var(--good)}
+/* tables */
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.vol{min-width:200px;max-width:340px;font-variant-numeric:tabular-nums;font-size:13.5px}
+td.stp{min-width:190px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.kpi .val{font-family:var(--display);font-weight:700;font-size:38px;line-height:1.05;font-variant-numeric:tabular-nums}
+.kpi .note{font-size:13px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:20px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;border-radius:0;min-height:36px;padding:6px 12px;font-weight:500;background:var(--surface)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px;font-size:14px}
+.chart svg{width:100%;height:auto;display:block}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--surface);padding:10px 18px;border-radius:6px;font-size:14px;font-weight:500;z-index:20;max-width:calc(100% - 32px)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{width:20px;min-height:20px;height:20px}
+details.recv summary{cursor:pointer;font-weight:600}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .3s}}
+
+.calc{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.calc b{color:var(--ink);font-weight:500}
+.steprow{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:8px}
+.steprow .sh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.steprow .sh b{font-size:15px}
+.crew{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.15fr) minmax(0,1.15fr) minmax(0,.75fr) auto;gap:8px;align-items:end}
+.crew label{display:flex;flex-direction:column;gap:2px;font-size:12px;font-weight:500;min-width:0}
+.crew input,.crew select{background:var(--surface)}
+.crew .lh{font-family:var(--mono);font-size:12.5px;padding-bottom:4px;line-height:1.35;min-width:0}
+.crew .lh small{display:block;color:var(--muted)}
+@media (max-width:560px){.crew{grid-template-columns:1fr 1fr}.crew .lh{grid-column:1/-1}}
+.result{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.uph-big{font-family:var(--display);font-weight:700;font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
+.uph-good{color:var(--good)} .uph-bad{color:var(--bad)}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+#rSteps td.vol,#rSteps td.stp{min-width:0;max-width:none}
+#rSteps td.stp .chip{display:none}
+.sticky{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+@media (max-width:900px){.sticky{position:static}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>Truck Receiving Tracker</h1>
+      <div class="tag">Right product. Right department. Right customers.</div>
+    </div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#entry" data-view="entry">Enter truck</a>
+      <a href="#dashboard" data-view="dashboard">Dashboard</a>
+      <a href="#plan" data-view="plan">Plan</a>
+      <a href="#goals" data-view="goals">Goal</a>
+    </nav>
+  </div>
+</header>
+
+<main><div class="wrap">
+  <div id="banner" class="banner"><span class="msg" id="bannerMsg">Connecting to the shared log…</span><button class="small" id="sampleBtn" type="button">Preview with sample data</button></div>
+
+  <!-- ENTRY -->
+  <section id="v-entry" data-v hidden>
+    <form id="truckForm" autocomplete="off" class="two">
+      <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+        <div class="panel">
+          <div class="head"><div><h2 id="formTitle">Enter a received truck</h2><p class="sub">Use the totals from the manifest. Total units is the output for UPH.</p></div></div>
+          <div class="row">
+            <label class="f">Manifest #<input id="tRef" required maxlength="40" placeholder="Manifest number"></label>
+            <label class="f">Date received<input id="tDate" type="date" required></label>
+            <label class="f">Total units<input id="tUnits" type="number" min="1" step="1" inputmode="numeric" required></label>
+          </div>
+          <div class="row">
+            <label class="f">Pallets<input id="tPallets" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+            <label class="f">Total OMS orders<input id="tOms" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+            <label class="f">Total manifest validation units<input id="tMvu" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+          </div>
+        </div>
+        <div class="panel">
+          <div><h2>Labor by step</h2><p class="sub">Add one row per person for each step they worked: first name, full-time or part-time, and the time they spent on that step. If someone moved between steps, add a row for them in each step with the times they were there.</p></div>
+          <div id="laborRows" style="display:flex;flex-direction:column;gap:12px"></div>
+          <datalist id="nameList"></datalist>
+        </div>
+        <div class="panel">
+          <div><h2>People on this truck</h2><p class="sub">Worked out from the rows above. Unpaid lunches come out automatically from each person's total hours across all steps: 40 min for full-time over 5 hours. Part-time 15 min breaks are paid, so they stay in the labor hours.</p></div>
+          <div id="crewCheck" class="banner" hidden></div>
+          <div class="tbl" id="peopleTable"></div>
+        </div>
+      </div>
+      <div class="panel sticky">
+        <h2>Productivity</h2>
+        <div><div class="lbl" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600">UPH</div><div class="uph-big" id="rUph">—</div><div class="sub" id="rUphNote"></div></div>
+        <div class="calc" id="rCalc"></div>
+        <div class="tbl" id="rSteps"></div>
+        <div class="row" style="justify-content:flex-end">
+          <button type="button" id="clearForm">Clear</button>
+          <button class="primary" type="submit" id="saveBtn">Save truck</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="v-dashboard" data-v hidden>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="head">
+        <div><h2>Productivity</h2><p class="sub">UPH = manifest units ÷ downstocking labor hours: OMS orders (break down pallets), manifest validation, and downstock totes and pallets. Unloading is shown but not counted.</p></div>
+        <div class="seg" id="rangeSeg" role="group" aria-label="Date range"></div>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="panel"><div class="head"><h3>Where the labor goes</h3><span class="sub">Unloading is shown for reference and not counted in UPH</span></div><div class="tbl" id="stageTable"></div></div>
+      <div class="panel chart"><div class="head"><h3 id="chartTitle">UPH by truck</h3><span class="sub" id="chartNote"></span></div><div id="chart"></div></div>
+      <div class="panel"><div class="head"><h3>Trucks</h3><span class="sub">Labor hours by step. Open a truck to view or change it.</span></div><div class="tbl" id="truckTable"></div></div>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section id="v-plan" data-v hidden>
+    <div class="two">
+      <form class="panel" id="planForm" autocomplete="off">
+        <div><h2>Plan a truck</h2><p class="sub">Check a schedule before the truck. Enter the manifest units and the people you plan to schedule. The app shows what that schedule delivers at the 90 UPH standard and at the UPH your team actually runs.</p></div>
+        <div class="row">
+          <label class="f">Manifest units<input id="pUnits" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 2100"></label>
+          <label class="f">Compare with a saved truck<select id="pTruck"><option value="">None</option></select></label>
+        </div>
+        <div class="row">
+          <label class="f">Full-time scheduled<input id="pFt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+          <label class="f">Hours each (full-time)<input id="pFtH" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
+          <label class="f">Part-time scheduled<input id="pPt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+          <label class="f">Hours each (part-time)<input id="pPtH" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
+        </div>
+        <div class="row">
+          <label class="f" style="flex:0 1 240px">Actual UPH to plan with<input id="pActual" type="number" min="1" step="0.1" inputmode="decimal"><small style="font-weight:400" id="pActualNote"></small></label>
+          <label class="f" style="flex:0 1 240px">Hours on other work<small style="font-weight:400">Picks and other tasks, all people combined</small><input id="pOther" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
+        </div>
+        <p class="sub">Full-time shifts over 5 hours lose a 40 min unpaid lunch. Part-time breaks are paid and stay in.</p>
+      </form>
+      <div class="panel sticky">
+        <h2>Will the truck get done?</h2>
+        <div id="planVerdict" class="banner" hidden></div>
+        <div class="calc" id="planCalc"></div>
+        <div class="tbl" id="planTable"></div>
+        <div id="planCompare"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GOAL -->
+  <section id="v-goals" data-v hidden>
+    <form class="panel" id="goalForm">
+      <div><h2>UPH goal</h2><p class="sub" id="goalNote">UPH at or above the goal shows green. UPH below the goal shows red.</p></div>
+      <div class="row">
+        <label class="f" style="flex:0 1 220px">UPH goal<input id="gUph" type="number" min="1" step="0.1" inputmode="decimal"></label>
+        <button class="primary" type="submit" id="saveGoal">Save goal</button>
+      </div>
+      <div class="tbl"><table><thead><tr><th>Measure</th><th>How it's calculated</th></tr></thead><tbody>
+        <tr><td><b>UPH</b></td><td>Manifest total units ÷ downstocking labor hours. Downstocking covers OMS orders (break down pallets), manifest validation, and downstock totes and pallets. Unloading is not counted.</td></tr>
+        <tr><td><b>Labor hours</b></td><td>Employees × (end time − start time), added up for every row, minus unpaid full-time lunches.</td></tr>
+        <tr><td><b>Lunches</b></td><td>Full-time: 40 min unpaid lunch taken out when their total hours across all steps are over 5. It comes out of the steps they worked, by their hours in each. Part-time 15 min breaks are paid, so nothing is taken out.</td></tr>
+        <tr><td><b>Double counting check</b></td><td>Each person is entered by first name. If the same person is in two steps at the same time, the app shows who and when, and won't save.</td></tr>
+        <tr><td><b>Step rates</b></td><td>Manifest totals (pallets, OMS orders, validation units, units) ÷ that step's labor hours.</td></tr>
+      </tbody></table></div>
+    </form>
+  </section>
+</div></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const STEPS=[
+  {key:'unload',team:'rcv',name:'Unload pallets from truck',code:'RCV-UNL',noUph:true,note:'Shown for reference. Not counted in UPH.',rates:[['pallets','pallets']]},
+  {key:'breakdown',team:'oms',name:'Break down pallets',code:'OMS-BRK',note:'Separate OMS orders, validation items, department totes and large units',rates:[['pallets','pallets'],['oms','OMS orders'],['mvu','validation units']]},
+  {key:'validate',team:'man',name:'Validate manifest items (Zebra scan)',code:'MAN-VAL',rates:[['mvu','validation units']]},
+  {key:'downstock',team:'dept',name:'Downstock totes and pallets',code:'DPT-DWN',rates:[['units','units']]},
+];
+const SBY=Object.fromEntries(STEPS.map(s=>[s.key,s]));
+const DAY=864e5,DEFAULT_GOAL=90;
+const S={manifests:[],goal:DEFAULT_GOAL,sample:false,range:'30d',editId:null,labor:null};
+let db=null,userCap=null,myId=null,canEdit=false,dbState='connecting';
+
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>{d=new Date(d);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const fmtDate=s=>new Date(s+'T12:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+const num=n=>Math.round(n).toLocaleString();
+const hrs1=h=>(Math.round(h*10)/10).toFixed(1);
+const uphFmt=u=>u==null||!isFinite(u)?'—':u>=100?num(u):(Math.round(u*10)/10).toFixed(1);
+const good=u=>u>=S.goal;
+function uphPill(u){if(u==null||!isFinite(u))return '<span class="pill p-none">—</span>';return `<span class="pill ${good(u)?'p-good':'p-bad'}">${uphFmt(u)} UPH</span>`}
+function teamChip(st){return `<span class="chip t-${st.team}"><span class="code">${st.code}</span></span>`}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,3200)}
+const manifests=()=>S.sample?SAMPLE:S.manifests;
+function minsBetween(a,b){if(!a||!b)return 0;const[h1,m1]=a.split(':').map(Number),[h2,m2]=b.split(':').map(Number);let d=(h2*60+m2)-(h1*60+m1);if(d<=0)d+=1440;return d}
+const LUNCH={ftOver:300,ft:40,ptOver:120,pt:0};
+const ftOf=r=>Math.max(0,Number(r.ft!=null&&r.ft!==''?r.ft:(r.pt!=null&&r.pt!==''?0:r.employees))||0),ptOf=r=>Math.max(0,Number(r.pt)||0);
+const nm=r=>String(r.name||'').trim(),normName=n=>String(n||'').trim().toLowerCase();
+function rowCalc(r){const min=minsBetween(r.start,r.end),heads=nm(r)?1:ftOf(r)+ptOf(r);return{min,hrs:heads*min/60}}
+const rowHrs=r=>rowCalc(r).hrs;
+function normTimes(rows){let iv=rows.map(r=>{const[hh,mm]=r.start.split(':').map(Number);return{r,s:hh*60+mm,min:minsBetween(r.start,r.end)}});
+  if(iv.some(x=>x.s>=720)&&iv.some(x=>x.s<360))iv.forEach(x=>{if(x.s<360)x.s+=1440});iv.forEach(x=>x.e=x.s+x.min);return iv}
+function people(m){
+  const iv=normTimes((m.labor||[]).filter(r=>nm(r)&&r.start&&r.end)),by={};
+  iv.forEach(x=>{const k=normName(x.r.name);(by[k]=by[k]||{name:nm(x.r),types:new Set(),iv:[]});by[k].types.add(x.r.type==='pt'?'pt':'ft');by[k].iv.push(x)});
+  return Object.values(by).map(p=>{const type=p.types.size>1?'mixed':[...p.types][0],min=p.iv.reduce((a,x)=>a+x.min,0);
+    const ded=type==='ft'&&min>LUNCH.ftOver?LUNCH.ft:type==='pt'&&min>LUNCH.ptOver?LUNCH.pt:0;
+    const so=[...p.iv].sort((a,b)=>a.s-b.s);let overlap=null;for(let i=1;i<so.length;i++)if(so[i].s<so[i-1].e){overlap=[so[i-1],so[i]];break}
+    return{...p,type,min,ded,overlap,steps:STEPS.map(s=>s.key).filter(k=>p.iv.some(x=>x.r.stage===k))}}).sort((a,b)=>a.name.localeCompare(b.name));
+}
+function stats(m){
+  const raw={},dedBy={},legRaw={};STEPS.forEach(s=>{raw[s.key]=0;dedBy[s.key]=0;legRaw[s.key]=0});
+  (m.labor||[]).forEach(r=>{if(raw[r.stage]==null)return;const h=rowHrs(r);raw[r.stage]+=h;if(!nm(r))legRaw[r.stage]+=h});
+  people(m).forEach(p=>{if(p.ded>0&&p.min>0)p.iv.forEach(x=>{dedBy[x.r.stage]+=p.ded*(x.min/p.min)/60})});
+  const legAll=Object.values(legRaw).reduce((a,b)=>a+b,0),legDed=Math.min(legAll,((Number(m.lunchFt)||0)*LUNCH.ft+(Number(m.breakPt)||0)*LUNCH.pt)/60);
+  if(legAll>0)STEPS.forEach(s=>dedBy[s.key]+=legDed*legRaw[s.key]/legAll);
+  const by={};STEPS.forEach(s=>by[s.key]=Math.max(0,raw[s.key]-dedBy[s.key]));
+  const ded=Object.values(dedBy).reduce((a,b)=>a+b,0),total=STEPS.filter(s=>!s.noUph).reduce((a,s)=>a+by[s.key],0),all=Object.values(by).reduce((a,b)=>a+b,0);
+  return{by,raw,ded,total,all,uph:total>0&&m.units>0?m.units/total:null}}
+const clock=m=>{const d=new Date(2000,0,1,0,m);return d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
+function personCheck(m,formRows){
+  if(formRows){const inc=formRows.find(r=>(r.start||r.end||nm(r))&&!(nm(r)&&r.start&&r.end));
+    if(inc)return{block:true,msg:'Every row needs a first name, a start time and an end time'+(nm(inc)?`. Check the row for ${nm(inc)}.`:'.')}}
+  const ps=people(m);if(!ps.length)return null;
+  const mx=ps.find(p=>p.type==='mixed');if(mx)return{block:true,msg:`${mx.name} is marked full-time in one row and part-time in another. Pick one.`};
+  const ov=ps.find(p=>p.overlap);if(ov){const[a,b]=ov.overlap;
+    return{block:true,msg:a.r.stage===b.r.stage?`${ov.name} has two rows in ${SBY[a.r.stage].name} that overlap at ${clock(b.s)}. Fix the times or remove one row.`:`${ov.name} is in ${SBY[a.r.stage].name} and ${SBY[b.r.stage].name} at the same time (${clock(b.s)}). Adjust the times so they don't overlap.`}}
+  const ft=ps.filter(p=>p.type==='ft').length;
+  return{block:false,msg:`No double counting. ${ft} full-time and ${ps.length-ft} part-time on this truck, each counted once at any moment.`}}
+function peopleTable(ps){return ps.length?`<table><thead><tr><th>Name</th><th>Type</th><th>Steps</th><th class="n">Hours worked</th><th class="n">Taken out</th><th class="n">Labor hrs</th></tr></thead><tbody>${ps.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${p.type==='ft'?'Full-time':p.type==='pt'?'Part-time':'<span style="color:var(--bad)">Both?</span>'}</td><td>${p.steps.map(k=>teamChip(SBY[k])).join(' ')}</td><td class="n">${hrs1(p.min/60)}</td><td class="n">${p.ded?p.ded+' min '+(p.type==='ft'?'lunch':'break'):'—'}</td><td class="n"><b>${hrs1((p.min-p.ded)/60)}</b></td></tr>`).join('')}</tbody></table>`:'<div class="empty">People appear here as you add rows.</div>'}
+function rateText(step,tot,h){if(!(h>0))return '—';const p=step.rates.filter(([k])=>tot[k]>0).map(([k,l])=>uphFmt(tot[k]/h)+' '+l);return p.length?p.join(' · ')+' per labor hr':'—'}
+function stepTable(rows,totalH,totalLine){
+  return `<table><thead><tr><th>Step</th><th class="n">Labor hrs</th><th class="n">% of UPH labor</th><th>Rate</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="stp">${teamChip(r.s)} ${esc(r.s.name)}</td><td class="n">${hrs1(r.h)}</td><td class="n">${r.s.noUph?'<span class="sub">Not in UPH</span>':totalH>0?Math.round(r.h/totalH*100)+'%':'—'}</td><td class="vol">${esc(rateText(r.s,r.tot,r.h))}</td></tr>`).join('')}${totalLine||''}</tbody></table>`;
+}
+
+/* two-step confirm buttons (the viewer has no confirm dialog) */
+let armed=null;
+function arm(btn,label,fn){
+  if(armed===btn){armed=null;fn();return}
+  if(armed){armed.classList.remove('armed');armed.textContent=armed.dataset.orig}
+  armed=btn;btn.dataset.orig=btn.textContent;btn.textContent=label;btn.classList.add('armed');
+  setTimeout(()=>{if(armed===btn){btn.classList.remove('armed');btn.textContent=btn.dataset.orig;armed=null}},4000);
+}
+function canWrite(){
+  if(S.sample){toast('Sample preview is on. Turn it off to save real data.');return false}
+  if(!db){toast('Open this page signed in to claude.ai to save.');return false}
+  return true;
+}
+function writeErr(e){toast(e&&e.code==='not_granted'?'You have view-only access. Ask the owner for edit access.':'Could not save. Check your connection and try again.')}
+
+/* routing */
+const VIEWS=['entry','dashboard','plan','goals'];
+function route(){let v=location.hash.slice(1);if(!VIEWS.includes(v))v='entry';
+  document.querySelectorAll('[data-v]').forEach(s=>s.hidden=s.id!=='v-'+v);
+  document.querySelectorAll('nav.tabs a').forEach(a=>{if(a.dataset.view===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});}
+addEventListener('hashchange',route);
+
+function renderBanner(){
+  const b=$('#banner'),m=$('#bannerMsg'),btn=$('#sampleBtn');b.classList.toggle('sample',S.sample);
+  btn.textContent=S.sample?'Back to live data':'Preview with sample data';
+  if(S.sample){m.textContent='Sample preview: made-up manifests so you can see how the dashboard fills in. Nothing here is saved.';return}
+  m.textContent={connecting:'Connecting to the shared log…',live:'Live. Everyone with this link sees the same trucks.',
+    nodb:'You can try the calculator, but saving needs you to open this page signed in to claude.ai.',slow:'The shared log is taking a while to answer. Trucks will appear when it connects.',
+    error:'Could not load the shared log. Reload the page to try again.'}[dbState];
+}
+$('#sampleBtn').onclick=()=>{S.sample=!S.sample;renderAll()};
+
+/* ---------- entry form ---------- */
+const blankRow=()=>({name:'',type:'ft',start:'',end:''});
+function blankLabor(){return Object.fromEntries(STEPS.map(s=>[s.key,[blankRow()]]))}
+const formRows=()=>STEPS.flatMap(s=>S.labor[s.key].map(r=>({...r,stage:s.key})));
+function renderLabor(){
+  $('#laborRows').innerHTML=STEPS.map(s=>`<div class="steprow t-${s.team}">
+    <div class="sh"><span><span class="code">${s.code}</span> <b>${esc(s.name)}</b>${s.note?`<br><small style="opacity:.85">${esc(s.note)}</small>`:''}</span>
+      <span class="calc" id="sh-${s.key}"></span></div>
+    ${S.labor[s.key].map((r,i)=>`<div class="crew">
+      <label>First name<input id="lr-${s.key}-${i}-name" data-k="${s.key}" data-i="${i}" data-f="name" maxlength="30" list="nameList" autocomplete="off" value="${esc(r.name)}"></label>
+      <label>Type<select id="lr-${s.key}-${i}-type" data-k="${s.key}" data-i="${i}" data-f="type"><option value="ft" ${r.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${r.type==='pt'?'selected':''}>Part-time</option></select></label>
+      <label>Start<input id="lr-${s.key}-${i}-start" data-k="${s.key}" data-i="${i}" data-f="start" type="time" value="${esc(r.start)}"></label>
+      <label>End<input id="lr-${s.key}-${i}-end" data-k="${s.key}" data-i="${i}" data-f="end" type="time" value="${esc(r.end)}"></label>
+      <span class="lh" id="lh-${s.key}-${i}"></span>
+      ${S.labor[s.key].length>1?`<button class="small" type="button" data-rm="${s.key}|${i}" aria-label="Remove this row">Remove</button>`:'<span></span>'}
+    </div>`).join('')}
+    <div><button class="small" type="button" data-add="${s.key}">Add person</button></div>
+  </div>`).join('');
+  updateResult();
+}
+function onRowEdit(e){const t=e.target;if(!t.dataset||!t.dataset.k)return;const row=S.labor[t.dataset.k][+t.dataset.i];row[t.dataset.f]=t.value;
+  if(t.dataset.f==='name'&&e.type==='change'){    const other=formRows().filter(x=>normName(x.name)===normName(row.name)&&!(x.stage===t.dataset.k&&x.start===row.start&&x.end===row.end&&x.type===row.type));
+    if(nm(row)&&other.length){row.type=other[0].type||'ft';const sel=$(`#lr-${t.dataset.k}-${t.dataset.i}-type`);if(sel)sel.value=row.type}}
+  updateResult()}
+$('#laborRows').addEventListener('input',onRowEdit);$('#laborRows').addEventListener('change',onRowEdit);
+$('#laborRows').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.add){S.labor[b.dataset.add].push(blankRow());renderLabor();const n=S.labor[b.dataset.add].length-1;$(`#lr-${b.dataset.add}-${n}-name`).focus()}
+  if(b.dataset.rm){const[k,i]=b.dataset.rm.split('|');S.labor[k].splice(+i,1);renderLabor()}});
+['tUnits','tPallets','tOms','tMvu'].forEach(id=>$('#'+id).addEventListener('input',updateResult));
+function formManifest(){const n=id=>Math.max(0,Math.round(Number($(id).value)||0));
+  const labor=formRows().filter(r=>nm(r)&&r.start&&r.end).map(r=>({stage:r.stage,name:nm(r),type:r.type==='pt'?'pt':'ft',start:r.start,end:r.end,minutes:minsBetween(r.start,r.end)}));
+  return{ref:$('#tRef').value.trim(),date:$('#tDate').value,units:n('#tUnits'),pallets:n('#tPallets'),oms:n('#tOms'),mvu:n('#tMvu'),labor}}
+function updateResult(){
+  const m=formManifest(),st=stats(m),ps=people(m);
+  STEPS.forEach(s=>{S.labor[s.key].forEach((r,i)=>{const el=$(`#lh-${s.key}-${i}`);if(el){const c=rowCalc(r);el.textContent=c.hrs>0?`= ${hrs1(c.hrs)} hrs`:''}});const sh=$('#sh-'+s.key);if(sh)sh.textContent=st.raw[s.key]>0?`${hrs1(st.raw[s.key])} hrs before lunches`:''});
+  $('#nameList').innerHTML=ps.map(p=>`<option value="${esc(p.name)}">`).join('');
+  const ck=personCheck(m,formRows()),cb=$('#crewCheck');cb.hidden=!ck;if(ck){cb.textContent=ck.msg;cb.className='banner '+(ck.block?'bad':'ok')}
+  $('#peopleTable').innerHTML=peopleTable(ps);
+  const u=st.uph;$('#rUph').textContent=uphFmt(u);$('#rUph').className='uph-big'+(u==null?'':good(u)?' uph-good':' uph-bad');
+  $('#rUphNote').textContent=u==null?'Enter total units and at least one person.':(good(u)?`At or above the goal of ${uphFmt(S.goal)}`:`Below the goal of ${uphFmt(S.goal)}`);
+  $('#rCalc').innerHTML=st.total>0?`${num(m.units)} units ÷ <b>${hrs1(st.total)} downstocking labor hrs</b> = <b>${uphFmt(u)} UPH</b>${st.ded>0?`<br>${hrs1(st.ded)} hrs of unpaid lunches taken out`:''}`:'';
+  $('#rSteps').innerHTML=st.all>0?stepTable(STEPS.map(s=>({s,h:st.by[s.key],tot:m})),st.total,`<tr><td><b>Downstocking labor (UPH)</b></td><td class="n"><b>${hrs1(st.total)}</b></td><td class="n">100%</td><td class="vol"><b>${uphFmt(st.uph)} UPH</b></td></tr>`):'';
+}
+function resetForm(){S.editId=null;S.labor=blankLabor();['#tRef','#tUnits','#tPallets','#tOms','#tMvu'].forEach(i=>$(i).value='');$('#tDate').value=ymd(Date.now());
+  $('#formTitle').textContent='Enter a received truck';$('#saveBtn').textContent='Save truck';renderLabor()}
+function loadForm(m){S.editId=S.sample?null:m.id;$('#tRef').value=m.ref||'';$('#tDate').value=m.date||'';
+  [['#tUnits','units'],['#tPallets','pallets'],['#tOms','oms'],['#tMvu','mvu']].forEach(([i,k])=>$(i).value=m[k]||'');
+  S.labor=Object.fromEntries(STEPS.map(s=>{const rows=[];(m.labor||[]).filter(r=>r.stage===s.key).forEach(r=>{
+    if(nm(r))rows.push({name:nm(r),type:r.type==='pt'?'pt':'ft',start:r.start,end:r.end});
+    else{const f=ftOf(r),q=ptOf(r);for(let i=0;i<f+q;i++)rows.push({name:'',type:i<f?'ft':'pt',start:r.start,end:r.end})}});
+    return[s.key,rows.length?rows:[blankRow()]]}));
+  $('#formTitle').textContent=S.editId?`Editing manifest ${m.ref}`:`Viewing sample ${m.ref}`;$('#saveBtn').textContent=S.editId?'Save changes':'Save truck';renderLabor();location.hash='entry';scrollTo(0,0)}
+$('#clearForm').addEventListener('click',()=>{resetForm();toast('Form cleared')});
+$('#truckForm').addEventListener('submit',async e=>{
+  e.preventDefault();if(!canWrite())return;const m=formManifest();
+  if(!m.ref||!m.date)return;if(!(m.units>0)){toast('Enter the total units from the manifest.');return}
+  if(!m.labor.length){toast('Add at least one person with a start and end time.');return}
+  const ck=personCheck(m,formRows());if(ck&&ck.block){toast(ck.msg);$('#crewCheck').scrollIntoView({block:'center'});return}
+  const st=stats(m);
+  try{
+    if(S.editId){await db.doc('manifests/'+S.editId).update({...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`)}
+    else{const ref=await db.collection('manifests').add({...m,createdAt:Date.now(),createdBy:myId||null});S.editId=ref.id;$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved: ${uphFmt(st.uph)} UPH`)}
+  }catch(err){writeErr(err)}
+});
+
+/* ---------- dashboard ---------- */
+const RANGES=[['7d','7 days'],['30d','30 days'],['90d','90 days'],['all','All']];
+function inRange(){const list=manifests();if(S.range==='all')return list;const d=+S.range.replace('d',''),t=new Date();t.setHours(0,0,0,0);const from=ymd(t.getTime()-(d-1)*DAY);return list.filter(m=>m.date>=from)}
+$('#rangeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-range]');if(b){S.range=b.dataset.range;try{localStorage.setItem('trt-range2',S.range)}catch(_){}renderDashboard()}});
+function renderDashboard(){
+  $('#rangeSeg').innerHTML=RANGES.map(([k,l])=>`<button type="button" data-range="${k}" aria-pressed="${S.range===k}">${l}</button>`).join('');
+  const rec=inRange().map(m=>({m,st:stats(m)})).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')||(b.m.createdAt||0)-(a.m.createdAt||0));
+  const units=rec.reduce((s,r)=>s+(r.m.units||0),0),labor=rec.reduce((s,r)=>s+r.st.total,0),uph=labor>0?units/labor:null;
+  const over=rec.filter(r=>r.st.uph!=null&&!good(r.st.uph)).length;
+  $('#kpis').innerHTML=`
+   <div class="kpi"><span class="lbl">UPH</span><span class="val ${uph==null?'':good(uph)?'uph-good':'uph-bad'}">${uphFmt(uph)}</span><span class="note">Goal ${uphFmt(S.goal)}</span></div>
+   <div class="kpi"><span class="lbl">Units</span><span class="val">${num(units)}</span><span class="note">From the manifests</span></div>
+   <div class="kpi"><span class="lbl">Downstocking labor hrs</span><span class="val">${hrs1(labor)}</span><span class="note">${rec.length?hrs1(labor/rec.length)+' per truck':'Employees × hours'}</span></div>
+   <div class="kpi"><span class="lbl">Trucks</span><span class="val">${rec.length}</span><span class="note">${over} below the UPH goal</span></div>`;
+  $('#stageTable').innerHTML=rec.length?stepTable(STEPS.map(s=>{const h=rec.reduce((x,r)=>x+r.st.by[s.key],0),w=rec.filter(r=>r.st.by[s.key]>0),tot={};['units','pallets','oms','mvu'].forEach(k=>tot[k]=w.reduce((x,r)=>x+(r.m[k]||0),0));return{s,h,tot}}),labor,
+    `<tr><td><b>Downstocking labor (UPH)</b></td><td class="n"><b>${hrs1(labor)}</b></td><td class="n">100%</td><td class="vol"><b>${uphFmt(uph)} UPH</b></td></tr>`):emptyDash();
+  renderChart(rec);
+  $('#truckTable').innerHTML=rec.length?`<table><thead><tr><th>Manifest #</th><th>Received</th><th class="n">Units</th>${STEPS.map(s=>`<th class="n">${esc(s.code)}</th>`).join('')}<th class="n">UPH labor hrs</th><th class="n">UPH</th><th></th></tr></thead><tbody>${rec.map(({m,st})=>`<tr><td><b>${esc(m.ref)}</b></td><td style="white-space:nowrap">${m.date?fmtDate(m.date):'—'}</td><td class="n">${m.units?num(m.units):'—'}</td>${STEPS.map(s=>`<td class="n">${hrs1(st.by[s.key])}</td>`).join('')}<td class="n"><b>${hrs1(st.total)}</b></td><td class="n">${uphPill(st.uph)}</td>
+    <td style="white-space:nowrap"><button class="small" type="button" data-open="${m.id}">Open</button> ${!S.sample&&db&&(canEdit||(myId&&m.createdBy===myId))?`<button class="small danger" type="button" data-del="${m.id}">Delete</button>`:''}</td></tr>`).join('')}</tbody></table>`:emptyDash();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.open){const m=manifests().find(x=>x.id===b.dataset.open);if(m)loadForm(m)}
+  else if(b.dataset.del){const id=b.dataset.del;arm(b,'Confirm delete',async()=>{if(!canWrite())return;try{await db.doc('manifests/'+id).delete();if(S.editId===id)resetForm();toast('Truck deleted')}catch(err){writeErr(err)}})}});
+function emptyDash(){return `<div class="empty">No trucks in this range. Enter a received truck on the Enter truck tab${S.sample?'':', or preview with sample data'}.</div>`}
+function renderChart(rec){
+  const all=rec.filter(r=>r.st.uph!=null).sort((x,y)=>(x.m.date||'').localeCompare(y.m.date||'')||(x.m.createdAt||0)-(y.m.createdAt||0));
+  const pts=all.slice(-30);
+  $('#chartTitle').textContent='UPH by truck';
+  $('#chartNote').textContent=`One point per truck, oldest to newest${all.length>30?' (latest 30)':''}. Dashed line = goal of ${uphFmt(S.goal)} UPH.`;
+  if(!pts.length){$('#chart').innerHTML=emptyDash();return}
+  const W=900,H=300,L=44,R=24,T=30,B=46,MAX=120,y=v=>T+(H-T-B)*(1-Math.min(v,MAX)/MAX);
+  const n=pts.length,x=i=>n===1?(L+W-R)/2:L+12+i*((W-R-L-24)/(n-1)),every=Math.ceil(n/12),labelAll=n<=15;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="UPH by truck, ${n} trucks">`;
+  for(let v=0;v<=MAX;v+=20)s+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="12" fill="var(--muted)">${v}</text>`;
+  s+=`<line x1="${L}" x2="${W-R}" y1="${y(S.goal)}" y2="${y(S.goal)}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+  if(n>1)s+=`<polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" points="${pts.map((p,i)=>x(i)+','+y(p.st.uph)).join(' ')}"/>`;
+  pts.forEach((p,i)=>{const u=p.st.uph,cx=x(i),cy=y(u),ok=good(u),over=u>MAX;
+    s+=`<circle cx="${cx}" cy="${cy}" r="6" fill="${ok?'var(--good)':'var(--bad)'}" stroke="var(--surface)" stroke-width="2"/>`;
+    if(over)s+=`<path d="M${cx-5} ${cy-11} L${cx+5} ${cy-11} L${cx} ${cy-18} Z" fill="var(--ink)"/>`;
+    if(labelAll||i===n-1)s+=`<text x="${cx}" y="${cy-(over?22:12)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)" stroke="var(--surface)" stroke-width="4" stroke-linejoin="round" paint-order="stroke">${uphFmt(u)}</text>`;
+    if(i%every===0||i===n-1)s+=`<text x="${cx}" y="${H-B+18}" text-anchor="middle" font-size="11.5" fill="var(--muted)">${esc(p.m.ref)}</text>${p.m.date?`<text x="${cx}" y="${H-B+32}" text-anchor="middle" font-size="10.5" fill="var(--muted)">${new Date(p.m.date+'T12:00').toLocaleDateString([],{month:'short',day:'numeric'})}</text>`:''}`;
+    s+=`<circle cx="${cx}" cy="${cy}" r="16" fill="transparent"><title>${esc(p.m.ref)}${p.m.date?' · '+fmtDate(p.m.date):''}: ${uphFmt(u)} UPH (${num(p.m.units||0)} units ÷ ${hrs1(p.st.total)} labor hrs) · ${ok?'at or above':'below'} goal</title></circle>`});
+  $('#chart').innerHTML=s+'</svg>';
+}
+
+/* ---------- goal ---------- */
+function renderGoals(){const ro=!canEdit||S.sample;$('#saveGoal').hidden=ro;$('#gUph').disabled=ro;
+  $('#goalNote').textContent='UPH at or above the goal shows green. UPH below the goal shows red.'+(ro?' Only people with edit access to this page can change it.':'');
+  if(document.activeElement!==$('#gUph'))$('#gUph').value=S.goal}
+$('#goalForm').addEventListener('submit',async e=>{e.preventDefault();if(!canWrite())return;const v=Number($('#gUph').value);
+  if(!(v>0)){toast('Enter a UPH goal above 0.');return}
+  try{await db.doc('settings/goals').set({uph:v,updatedAt:Date.now(),updatedBy:myId||null});toast('UPH goal saved')}catch(err){writeErr(err)}});
+
+/* ---------- sample data (preview only, never saved) ---------- */
+const SAMPLE=(()=>{
+  let seed=21;const r=()=>(seed=(seed*16807)%2147483647)/2147483647,ri=(a,b)=>a+Math.floor(r()*(b-a+1));
+  const t0=new Date();t0.setHours(0,0,0,0);const out=[];let n=0;
+  const tm=m=>pad(Math.floor(m/60)%24)+':'+pad(m%60),POOL=['Alex','Sam','Jordan','Taylor','Casey','Riley','Morgan','Jamie','Drew','Avery'];
+  for(let d=20;d>=1;d--){if(r()<.25)continue;const k=ri(1,2);for(let j=0;j<k;j++){const base=360+j*240,P=[...POOL].sort(()=>r()-.5),L=[];
+    const add=(stage,i,type,s,e)=>L.push({stage,name:P[i],type,start:tm(s),end:tm(e),minutes:e-s});
+    const u=base+ri(45,75),b=u+ri(150,210);
+    add('unload',0,'ft',base,u);add('unload',1,'ft',base,u);
+    add('breakdown',0,'ft',u,b);add('breakdown',1,'ft',u,b);add('breakdown',2,'pt',u,u+ri(100,150));
+    add('validate',3,'ft',u+30,u+30+ri(120,180));
+    add('downstock',0,'ft',b,b+ri(120,180));add('downstock',1,'ft',b,b+ri(120,180));
+    add('downstock',4,'pt',u+60,u+60+ri(180,240));add('downstock',5,'ft',u+60,u+60+ri(240,330));if(r()<.6)add('downstock',6,'pt',u+90,u+90+ri(150,220));
+    out.push({id:'s'+(++n),ref:'SAMPLE '+(600+n),date:ymd(t0.getTime()-d*DAY),units:ri(1500,2700),pallets:ri(16,28),oms:ri(150,400),mvu:ri(100,300),labor:L,createdAt:n})}}
+  return out;
+})();
+
+/* ---------- wiring ---------- */
+/* ---------- plan ---------- */
+let planActualDirty=false;
+function recentUph(){const t=new Date();t.setHours(0,0,0,0);const from=ymd(t.getTime()-29*DAY);let l=manifests().filter(m=>m.date>=from);let lbl='last 30 days';
+  if(!l.length){l=manifests();lbl='all trucks'}const u=l.reduce((a,m)=>a+(m.units||0),0),hh=l.reduce((a,m)=>a+stats(m).total,0);return hh>0?{uph:u/hh,n:l.length,lbl}:null}
+function renderPlanInputs(){
+  const sel=$('#pTruck'),cur=sel.value,list=[...manifests()].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  sel.innerHTML='<option value="">None</option>'+list.map(m=>`<option value="${esc(m.id)}">${esc(m.ref)}${m.date?' · '+fmtDate(m.date):''}</option>`).join('');if([...sel.options].some(o=>o.value===cur))sel.value=cur;
+  const r=recentUph();$('#pActualNote').textContent=r?`Your average: ${uphFmt(r.uph)} UPH over ${r.n} truck${r.n>1?'s':''} (${r.lbl}). Change it to test other rates.`:'No trucks saved yet. Enter your usual UPH, for example 51.';
+  if(!planActualDirty&&document.activeElement!==$('#pActual'))$('#pActual').value=r?(Math.round(r.uph*10)/10):'';
+  updatePlan()}
+function updatePlan(){
+  const v=id=>Math.max(0,Number($(id).value)||0),units=v('#pUnits'),ft=v('#pFt'),fth=v('#pFtH'),pt=v('#pPt'),pth=v('#pPtH'),act=v('#pActual'),other=v('#pOther'),std=S.goal;
+  const lunch=fth>LUNCH.ftOver/60?LUNCH.ft/60:0,sched=ft*fth+pt*pth,lunchH=ft*lunch,truckH=Math.max(0,sched-lunchH-other);
+  const vb=$('#planVerdict');
+  if(!(units>0)||!(sched>0)){vb.hidden=true;$('#planCalc').innerHTML='Enter the manifest units and the people you plan to schedule.';$('#planTable').innerHTML='';renderPlanCompare(null);return}
+  $('#planCalc').innerHTML=`${ft} full-time × ${fth} hrs + ${pt} part-time × ${pth} hrs = ${hrs1(sched)} scheduled hrs`+(lunchH?`<br>− ${hrs1(lunchH)} hrs unpaid lunches`:'')+(other?`<br>− ${hrs1(other)} hrs other work`:'')+`<br>= <b>${hrs1(truckH)} labor hrs on the truck</b>`;
+  const rows=[['Standard',std],['Your actual',act]].filter(x=>x[1]>0).map(([l,u])=>{const cap=truckH*u,need=units/u,gap=truckH-need;return{l,u,cap,need,gap}});
+  $('#planTable').innerHTML=`<table><thead><tr><th>At</th><th class="n">Units it covers</th><th class="n">Hours needed</th><th class="n">Short / spare</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.l}</b> ${uphFmt(r.u)} UPH</td><td class="n">${num(r.cap)}</td><td class="n">${hrs1(r.need)}</td><td class="n" style="color:var(${r.gap>=0?'--good':'--bad'})">${r.gap>=0?hrs1(r.gap)+' hrs spare':hrs1(-r.gap)+' hrs short'}</td></tr>`).join('')}</tbody></table>`;
+  const a=rows.find(r=>r.l==='Your actual'),s=rows.find(r=>r.l==='Standard');vb.hidden=false;
+  if(a){const avgH=sched/Math.max(1,ft+pt);
+    if(a.gap>=0){vb.className='banner ok';vb.textContent=`Enough at your actual ${uphFmt(a.u)} UPH: covers ${num(a.cap)} of ${num(units)} units with ${hrs1(a.gap)} labor hrs to spare.`}
+    else{vb.className='banner bad';vb.textContent=`Not enough at your actual ${uphFmt(a.u)} UPH: covers ${num(a.cap)} of ${num(units)} units. Add about ${hrs1(-a.gap)} labor hrs (about ${Math.ceil(-a.gap/Math.max(avgH,0.25))} more ${Math.ceil(-a.gap/Math.max(avgH,0.25))>1?'people':'person'} at ${hrs1(avgH)} hrs), or the team needs to reach ${uphFmt(units/truckH)} UPH.`+(s&&s.gap>=0?` At the ${uphFmt(std)} standard it would be enough, which is why the schedule looks fine on paper.`:'')}}
+  else{vb.className='banner '+(s.gap>=0?'ok':'bad');vb.textContent=s.gap>=0?`Enough at the ${uphFmt(std)} UPH standard. Enter your actual UPH to check it against how the team really runs.`:`Not enough even at the ${uphFmt(std)} UPH standard.`}
+  renderPlanCompare(truckH);
+}
+function renderPlanCompare(planH){
+  const id=$('#pTruck').value,m=id&&manifests().find(x=>x.id===id),box=$('#planCompare');if(!m){box.innerHTML='';return}
+  const st=stats(m);
+  box.innerHTML=`<h3 style="margin-top:6px">Planned vs actual: ${esc(m.ref)}</h3><div class="tbl"><table><thead><tr><th></th><th class="n">Labor hrs on truck</th><th class="n">UPH</th></tr></thead><tbody>
+    <tr><td>Planned</td><td class="n">${planH!=null?hrs1(planH):'—'}</td><td class="n">${planH>0&&m.units?uphFmt(m.units/planH):'—'}</td></tr>
+    <tr><td>Actual (entered)</td><td class="n">${hrs1(st.total)}</td><td class="n">${uphPill(st.uph)}</td></tr></tbody></table></div>
+    <p class="sub">${planH==null?'Enter the schedule to compare.':planH>st.total+0.05?`${hrs1(planH-st.total)} scheduled hrs did not show up on the truck: people pulled to other work, late starts or early leaves.`:planH<st.total-0.05?`The truck used ${hrs1(st.total-planH)} more labor hrs than planned.`:'Planned and actual hours match.'} Truck units: ${num(m.units||0)}.</p>`;
+}
+['pUnits','pFt','pFtH','pPt','pPtH','pOther'].forEach(i=>$('#'+i).addEventListener('input',updatePlan));
+$('#pActual').addEventListener('input',()=>{planActualDirty=$('#pActual').value!=='';updatePlan()});
+$('#pTruck').addEventListener('change',()=>{const m=manifests().find(x=>x.id===$('#pTruck').value);if(m&&!$('#pUnits').value)$('#pUnits').value=m.units||'';updatePlan()});
+$('#planForm').addEventListener('submit',e=>e.preventDefault());
+
+function renderAll(){renderBanner();renderDashboard();renderGoals();updateResult();renderPlanInputs()}
+try{const r=localStorage.getItem('trt-range2');if(r&&RANGES.some(x=>x[0]===r))S.range=r}catch(_){}
+resetForm();route();renderAll();
+
+(async()=>{
+  const slow=setTimeout(()=>{if(dbState==='connecting'){dbState='slow';renderBanner()}},10000);
+  const use=window.claude&&window.claude.use?n=>window.claude.use(n):async()=>null;
+  [db,userCap]=await Promise.all([use('db'),use('user')]);
+  if(userCap){try{canEdit=await userCap.canEdit();myId=await userCap.id()}catch(_){}}
+  if(!db){clearTimeout(slow);dbState='nodb';renderAll();return}
+  const ok=()=>{clearTimeout(slow);dbState='live'},fail=()=>{clearTimeout(slow);dbState='error';renderBanner()};
+  db.collection('manifests').orderBy('date','desc').limit(1000).onSnapshot(s=>{ok();S.manifests=s.docs.map(d=>({id:d.id,...d.data()}));renderAll()},fail);
+  db.doc('settings/goals').onSnapshot(s=>{ok();const g=s.exists&&Number(s.data().uph);S.goal=g>0?g:DEFAULT_GOAL;renderAll()},fail);
+})();
+</script>
+
+</body>
+</html>
