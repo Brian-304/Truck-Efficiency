@@ -80,20 +80,18 @@
   <section id="v-plan" data-v hidden>
     <div class="two">
       <form class="panel" id="planForm" autocomplete="off">
-        <div><h2>Plan a truck</h2><p class="sub">Check a schedule before the truck. Enter the manifest units and the people you plan to schedule. The app shows what that schedule delivers at the 90 UPH standard and at the UPH your team actually runs.</p></div>
+        <div><h2>Plan a truck</h2><p class="sub">Enter the manifest units and the crew you plan to schedule. The app checks whether that schedule can finish the truck at the UPH you plan for.</p></div>
         <div class="row">
-          <label class="f">Manifest units<input id="pUnits" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 2100"></label>
-          <label class="f">Compare with a saved truck<select id="pTruck"><option value="">None</option></select></label>
+          <label class="f">Manifest units<input id="pUnits" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 2600"></label>
+          <label class="f">UPH plan (standard is 90)<input id="pUph" type="number" min="1" step="0.1" inputmode="decimal" value="90"></label>
         </div>
         <div class="row">
-          <label class="f">Full-time scheduled<input id="pFt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+          <label class="f">Full-time employees<input id="pFt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
           <label class="f">Hours each (full-time)<input id="pFtH" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
-          <label class="f">Part-time scheduled<input id="pPt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
-          <label class="f">Hours each (part-time)<input id="pPtH" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
         </div>
         <div class="row">
-          <label class="f" style="flex:0 1 240px">Actual UPH to plan with<input id="pActual" type="number" min="1" step="0.1" inputmode="decimal"><small style="font-weight:400" id="pActualNote"></small></label>
-          <label class="f" style="flex:0 1 240px">Hours on other work<small style="font-weight:400">Picks and other tasks, all people combined</small><input id="pOther" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
+          <label class="f">Part-time employees<input id="pPt" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+          <label class="f">Hours each (part-time)<input id="pPtH" type="number" min="0" step="0.25" inputmode="decimal" placeholder="0"></label>
         </div>
         <p class="sub">Full-time shifts over 5 hours lose a 40 min unpaid lunch. Part-time breaks are paid and stay in.</p>
       </form>
@@ -102,7 +100,7 @@
         <div id="planVerdict" class="banner" hidden></div>
         <div class="calc" id="planCalc"></div>
         <div class="tbl" id="planTable"></div>
-        <div id="planCompare"></div>
+        <div id="planAnalysis"></div>
       </div>
     </div>
   </section>
