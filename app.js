@@ -222,21 +222,22 @@ const SAMPLE=(()=>{
 /* ---------- plan ---------- */
 function renderPlanInputs(){updatePlan()}
 function updatePlan(){
-  const v=id=>Math.max(0,Number($(id).value)||0),units=v('#pUnits'),uph=v('#pUph'),ft=Math.round(v('#pFt')),fth=v('#pFtH'),pt=Math.round(v('#pPt')),pth=v('#pPtH');
-  const lunch=fth>LUNCH.ftOver/60?LUNCH.ft/60:0,ftNet=Math.max(0,fth-lunch),sched=ft*fth+pt*pth,truckH=ft*ftNet+pt*pth;
+  const v=id=>Math.max(0,Number($(id).value)||0),units=v('#pUnits'),uph=v('#pUph'),ft=Math.round(v('#pFt')),fth=v('#pFtH'),pt=Math.round(v('#pPt')),pth=v('#pPtH'),other=v('#pOther');
+  const lunch=fth>LUNCH.ftOver/60?LUNCH.ft/60:0,ftNet=Math.max(0,fth-lunch),sched=ft*fth+pt*pth,crewH=ft*ftNet+pt*pth,truckH=Math.max(0,crewH-other);
   const vb=$('#planVerdict'),out=(c,t,a)=>{$('#planCalc').innerHTML=c;$('#planTable').innerHTML=t;$('#planAnalysis').innerHTML=a};
-  if(!(units>0)||!(uph>0)||!(truckH>0)){vb.hidden=true;out('Enter the manifest units, the UPH plan, and at least one full-time or part-time group with hours.','','');return}
+  if(!(units>0)||!(uph>0)||!(truckH>0)){vb.hidden=true;out(crewH>0&&other>=crewH?`The ${hrs1(other)} hrs on picks and other tasks use up all ${hrs1(crewH)} crew hours, so no time is left for the truck.`:'Enter the manifest units, the UPH plan, and at least one full-time or part-time group with hours.','','');return}
   const cap=truckH*uph,need=units/uph,gap=truckH-need,pace=units/truckH,ok=gap>=-0.005;
   vb.hidden=false;vb.className='banner '+(ok?'ok':'bad');
   vb.textContent=ok?`Yes. At ${uphFmt(uph)} UPH this crew covers ${num(cap)} of ${num(units)} units, with ${hrs1(gap)} labor hrs to spare.`
     :`No. At ${uphFmt(uph)} UPH this crew covers ${num(cap)} of ${num(units)} units, about ${num(units-cap)} short. It needs ${hrs1(-gap)} more labor hrs.`;
-  out(`${ft} full-time × ${fth} hrs + ${pt} part-time × ${pth} hrs = ${hrs1(sched)} scheduled hrs`+(ft&&lunch?`<br>− ${hrs1(ft*lunch)} hrs unpaid lunches (${ft} × 40 min)`:'')+`<br>= <b>${hrs1(truckH)} labor hrs on the truck</b><br>${hrs1(truckH)} hrs × ${uphFmt(uph)} UPH = <b>${num(cap)} units</b>`,
+  out(`${ft} full-time × ${fth} hrs + ${pt} part-time × ${pth} hrs = ${hrs1(sched)} scheduled hrs`+(ft&&lunch?`<br>− ${hrs1(ft*lunch)} hrs unpaid lunches (${ft} × 40 min)`:'')+(other?`<br>− ${hrs1(other)} hrs on picks and other tasks`:'')+`<br>= <b>${hrs1(truckH)} labor hrs on the truck</b><br>${hrs1(truckH)} hrs × ${uphFmt(uph)} UPH = <b>${num(cap)} units</b>`,
     `<table><thead><tr><th></th><th class="n">Each person</th><th class="n">Hours on truck</th><th class="n">Units at ${uphFmt(uph)} UPH</th></tr></thead><tbody>
       ${ft?`<tr><td>Full-time</td><td class="n">${ft} ×</td><td class="n">${hrs1(ftNet)}</td><td class="n">${num(ftNet*uph)} each</td></tr>`:''}
       ${pt?`<tr><td>Part-time</td><td class="n">${pt} ×</td><td class="n">${hrs1(pth)}</td><td class="n">${num(pth*uph)} each</td></tr>`:''}
-      <tr><td><b>Crew total</b></td><td class="n">${ft+pt}</td><td class="n"><b>${hrs1(truckH)}</b></td><td class="n"><b>${num(cap)}</b></td></tr>
+${other?`<tr><td>Picks and other tasks</td><td></td><td class="n">−${hrs1(other)}</td><td class="n">−${num(other*uph)}</td></tr>`:''}
+      <tr><td><b>Crew total on truck</b></td><td class="n">${ft+pt}</td><td class="n"><b>${hrs1(truckH)}</b></td><td class="n"><b>${num(cap)}</b></td></tr>
       <tr><td>Manifest</td><td></td><td class="n">${hrs1(need)} needed</td><td class="n">${num(units)}</td></tr></tbody></table>`,
-    planAnalysis({units,uph,ft,fth,ftNet,pt,pth,truckH,need,gap,pace,ok}));
+    planAnalysis({units,uph,ft,fth,ftNet,pt,pth,truckH,need,gap,pace,ok,other}));
 }
 function planAnalysis(p){
   const pts=[],short=-p.gap;
@@ -256,10 +257,11 @@ function planAnalysis(p){
     pts.push(`<li><b>To finish the truck,</b> any one of: ${opts.join('; ')}.</li>`);
     pts.push(`<li><b>Without changes,</b> about ${num(p.units-p.truckH*p.uph)} units would be left at the end of the shift.</li>`);
   }
+  if(p.other>0){const lost=p.other*p.uph;pts.push(`<li><b>Picks and other tasks:</b> ${hrs1(p.other)} hrs off the truck is about ${num(lost)} units at ${uphFmt(p.uph)} UPH.${p.ok?'':` Without them, the crew would ${p.gap+p.other>=0?'finish the truck':`still be ${hrs1(-(p.gap+p.other))} hrs short`}.`}</li>`)}
   if(p.ft&&p.fth>5&&p.fth<=5.67)pts.push(`<li><b>Lunch:</b> full-time shifts of ${p.fth} hrs trigger the 40 min unpaid lunch. A shift of 5 hrs or less has no lunch.</li>`);
   return `<h3 style="margin-top:4px">Analysis</h3><ul style="margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px">${pts.join('')}</ul>`;
 }
-['pUnits','pUph','pFt','pFtH','pPt','pPtH'].forEach(i=>$('#'+i).addEventListener('input',updatePlan));
+['pUnits','pUph','pFt','pFtH','pPt','pPtH','pOther'].forEach(i=>$('#'+i).addEventListener('input',updatePlan));
 $('#planForm').addEventListener('submit',e=>e.preventDefault());
 
 function renderAll(){renderBanner();renderDashboard();renderGoals();updateResult();renderPlanInputs()}
