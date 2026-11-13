@@ -167,10 +167,43 @@ function updateResult(){
   $('#rUphNote').textContent=u==null?'Enter total units and at least one person.':(good(u)?`At or above the goal of ${uphFmt(S.goal)}`:`Below the goal of ${uphFmt(S.goal)}`);
   $('#rCalc').innerHTML=st.total>0?`${num(m.units)} units ÷ <b>${hrs1(st.total)} downstocking labor hrs</b> = <b>${uphFmt(u)} UPH</b>${st.ded>0?`<br>${hrs1(st.ded)} hrs of unpaid lunches taken out`:''}`:'';
   $('#rSteps').innerHTML=st.all>0?stepTable(STEPS.map(s=>({s,h:st.by[s.key],tot:m})),st.total,`<tr><td><b>Downstocking labor (UPH)</b></td><td class="n"><b>${hrs1(st.total)}</b></td><td class="n">100%</td><td class="vol"><b>${uphFmt(st.uph)} UPH</b></td></tr>`):'';
+  renderAnalysis(m,st);
 }
-function resetForm(){S.editId=null;S.labor=blankLabor();['#tRef','#tUnits','#tPallets','#tOms','#tMvu'].forEach(i=>$(i).value='');$('#tDate').value=ymd(Date.now());
+/* ---------- truck analysis (shown once a truck is saved or opened) ---------- */
+const fmtDur=ms=>{const m=Math.round(ms/6e4);return m<60?m+' min':Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'};
+function staffing(m){
+  const iv=normTimes((m.labor||[]).filter(r=>r.start&&r.end&&SBY[r.stage]&&!SBY[r.stage].noUph&&(nm(r)||ftOf(r)+ptOf(r))));
+  if(!iv.length)return null;const heads=x=>nm(x.r)?1:ftOf(x.r)+ptOf(x.r);
+  const a=Math.min(...iv.map(x=>x.s)),b=Math.max(...iv.map(x=>x.e));let peak=0,peakAt=a,gap=0,gapAt=null,run=0,runAt=null;
+  for(let t=a;t<b;t+=15){const n=iv.filter(x=>x.s<=t&&t<x.e).reduce((s,x)=>s+heads(x),0);if(n>peak){peak=n;peakAt=t}
+    if(n===0){if(!run)runAt=t;run+=15;if(run>gap){gap=run;gapAt=runAt}}else run=0}
+  const tailStart=Math.max(a,b-60),tail=iv.filter(x=>x.s<b&&x.e>tailStart).reduce((s,x)=>s+heads(x),0);
+  return{a,b,peak,peakAt,gap,gapAt,tail}}
+function renderAnalysis(m,st){
+  const box=$('#rAnalysis');if(!box)return;
+  if(!S.analyze||!(st.uph>0)){box.hidden=true;box.innerHTML='';return}
+  const g=S.goal,uph=st.uph,need=m.units/g,diff=st.total-need,pts=[];
+  pts.push(uph>=g?`<li><b>At or above standard.</b> ${uphFmt(uph)} UPH is ${uphFmt(uph-g)} above ${uphFmt(g)}. The truck used ${hrs1(st.total)} labor hrs; ${uphFmt(g)} UPH allows up to ${hrs1(need)}.</li>`
+    :`<li><b>Below standard by ${uphFmt(g-uph)} UPH.</b> ${num(m.units)} units at ${uphFmt(g)} UPH needs ${hrs1(need)} labor hrs or fewer. This truck used ${hrs1(st.total)}, so it was <b>${hrs1(diff)} hrs over</b>.</li>`);
+  const steps=STEPS.filter(s=>!s.noUph&&st.by[s.key]>0).sort((x,y)=>st.by[y.key]-st.by[x.key]);
+  if(steps.length){const s=steps[0],sh=st.by[s.key]/st.total;
+    pts.push(`<li><b>Most time: ${esc(s.name)}</b>, ${hrs1(st.by[s.key])} hrs (${Math.round(sh*100)}% of UPH labor) at ${esc(rateText(s,m,st.by[s.key]))}.${uph<g&&diff>0?` Taking ${hrs1(Math.min(diff,st.by[s.key]))} hrs out of this step alone would reach ${uphFmt(g)}.`:''}</li>`)}
+  const sf=staffing(m);
+  if(sf){const span=(sf.b-sf.a)/60;
+    pts.push(`<li><b>Staffing:</b> work ran ${clock(sf.a)} to ${clock(sf.b)} (${hrs1(span)} hrs). Peak was <b>${sf.peak} ${sf.peak>1?'people':'person'} at ${clock(sf.peakAt)}</b>.${sf.peak>=8?' A big peak can mean crowded aisles; compare with your best trucks.':''}</li>`);
+    if(sf.gap>=30)pts.push(`<li><b>Gap:</b> nobody was on the truck for ${fmtDur(sf.gap*6e4)} from ${clock(sf.gapAt)}. Using that time could spread the work and shrink the peak.</li>`);
+    if(sf.tail>0&&sf.tail<=Math.max(2,Math.floor(sf.peak/3))&&span>3)pts.push(`<li><b>Slow finish:</b> only ${sf.tail} ${sf.tail>1?'people':'person'} in the last hour. Planning the hardest items earlier, or finishing with a slightly bigger crew, can shorten the tail.</li>`)}
+  if(st.ded>0)pts.push(`<li><b>Lunches:</b> ${hrs1(st.ded)} hrs of unpaid full-time lunches were taken out.</li>`);
+  const others=manifests().filter(x=>x.id!==S.editId&&!(S.sample&&x.ref===m.ref)).map(x=>({m:x,st:stats(x)})).filter(x=>x.st.uph>0);
+  if(others.length){const u=others.reduce((s,x)=>s+(x.m.units||0),0),h=others.reduce((s,x)=>s+x.st.total,0),avg=u/h,best=others.reduce((a,x)=>x.st.uph>a.st.uph?x:a);
+    const rank=others.filter(x=>x.st.uph>uph).length+1;
+    pts.push(`<li><b>Compared with your other ${others.length} truck${others.length>1?'s':''}:</b> their UPH is ${uphFmt(avg)} overall; this truck is ${uph>=avg?`${uphFmt(uph-avg)} higher`:`${uphFmt(avg-uph)} lower`} and ranks <b>#${rank} of ${others.length+1}</b>. Best so far: ${esc(best.m.ref)} at ${uphFmt(best.st.uph)} UPH.</li>`)}
+  box.hidden=false;
+  box.innerHTML=`<div class="ahead"><h3>Truck analysis</h3><span class="sub">${esc(m.ref||'This truck')}${m.date?' · '+fmtDate(m.date):''}</span></div><ul>${pts.join('')}</ul>`;
+}
+function resetForm(){S.analyze=false;S.editId=null;S.labor=blankLabor();['#tRef','#tUnits','#tPallets','#tOms','#tMvu'].forEach(i=>$(i).value='');$('#tDate').value=ymd(Date.now());
   $('#formTitle').textContent='Enter a received truck';$('#saveBtn').textContent='Save truck';renderLabor()}
-function loadForm(m){S.editId=S.sample?null:m.id;$('#tRef').value=m.ref||'';$('#tDate').value=m.date||'';
+function loadForm(m){S.analyze=true;S.editId=S.sample?null:m.id;$('#tRef').value=m.ref||'';$('#tDate').value=m.date||'';
   [['#tUnits','units'],['#tPallets','pallets'],['#tOms','oms'],['#tMvu','mvu']].forEach(([i,k])=>$(i).value=m[k]||'');
   S.labor=Object.fromEntries(STEPS.map(s=>{const rows=[];(m.labor||[]).filter(r=>r.stage===s.key).forEach(r=>{
     if(nm(r))rows.push({name:nm(r),type:r.type==='pt'?'pt':'ft',start:r.start,end:r.end});
@@ -185,8 +218,8 @@ $('#truckForm').addEventListener('submit',async e=>{
   const ck=personCheck(m,formRows());if(ck&&ck.block){toast(ck.msg);$('#crewCheck').scrollIntoView({block:'center'});return}
   const st=stats(m);
   try{
-    if(S.editId){await db.doc('manifests/'+S.editId).update({...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`)}
-    else{const ref=await db.collection('manifests').add({...m,createdAt:Date.now(),createdBy:myId||null});S.editId=ref.id;$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved: ${uphFmt(st.uph)} UPH`)}
+    if(S.editId){await db.doc('manifests/'+S.editId).update({...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
+    else{const ref=await db.collection('manifests').add({...m,createdAt:Date.now(),createdBy:myId||null});S.editId=ref.id;$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
   }catch(err){writeErr(err)}
 });
 
