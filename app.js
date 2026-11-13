@@ -246,11 +246,10 @@ function renderDashboard(){
   const rec=inRange().map(m=>({m,st:stats(m)})).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')||(b.m.createdAt||0)-(a.m.createdAt||0));
   renderChart(rec);
   $('#truckTable').innerHTML=rec.length?`<table><thead><tr><th>Manifest #</th><th>Received</th><th class="n">Units</th>${STEPS.map(s=>`<th class="n">${esc(s.code)}</th>`).join('')}<th class="n">UPH labor hrs</th><th class="n">UPH</th><th></th></tr></thead><tbody>${rec.map(({m,st})=>`<tr><td><b>${esc(m.ref)}</b></td><td style="white-space:nowrap">${m.date?fmtDate(m.date):'—'}</td><td class="n">${m.units?num(m.units):'—'}</td>${STEPS.map(s=>`<td class="n">${hrs1(st.by[s.key])}</td>`).join('')}<td class="n"><b>${hrs1(st.total)}</b></td><td class="n">${uphPill(st.uph)}</td>
-    <td style="white-space:nowrap"><button class="small" type="button" data-open="${m.id}">Open</button> ${!S.sample&&(!db||canEdit||(myId&&m.createdBy===myId))?`<button class="small danger" type="button" data-del="${m.id}">Delete</button>`:''}</td></tr>`).join('')}</tbody></table>`:emptyDash();
+    <td style="white-space:nowrap"><button class="small" type="button" data-open="${m.id}">Open</button></td></tr>`).join('')}</tbody></table>`:emptyDash();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.open){const m=manifests().find(x=>x.id===b.dataset.open);if(m)loadForm(m)}
-  else if(b.dataset.del){const id=b.dataset.del;arm(b,'Confirm delete',async()=>{if(!canWrite())return;try{await truckDelete(id);if(S.editId===id)resetForm();toast('Truck deleted')}catch(err){writeErr(err)}})}});
+  if(b.dataset.open){const m=manifests().find(x=>x.id===b.dataset.open);if(m)loadForm(m)}});
 function emptyDash(){return `<div class="empty">No trucks yet. Enter a received truck on the Enter truck tab${S.sample?'':', or preview with sample data'}.</div>`}
 function renderChart(rec){
   const all=rec.filter(r=>r.st.uph!=null).sort((x,y)=>(x.m.date||'').localeCompare(y.m.date||'')||(x.m.createdAt||0)-(y.m.createdAt||0));
