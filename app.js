@@ -91,7 +91,7 @@ function canWrite(){
 function writeErr(e){if(e&&e.code==='local'){toast(e.message);return}toast(e&&e.code==='not_granted'?'You have view-only access. Ask the owner for edit access.':'Could not save. Check your connection and try again.')}
 
 /* routing */
-const VIEWS=['entry','dashboard','plan','crew','goals'];
+const VIEWS=['entry','dashboard','plan','crew','goals','help'];
 function route(){let v=location.hash.slice(1);if(!VIEWS.includes(v))v='entry';
   document.querySelectorAll('[data-v]').forEach(s=>s.hidden=s.id!=='v-'+v);
   document.querySelectorAll('nav.tabs a').forEach(a=>{if(a.dataset.view===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});}

@@ -18,6 +18,7 @@
       <a href="#dashboard" data-view="dashboard">Dashboard</a>
       <a href="#plan" data-view="plan">Plan</a>
       <a href="#goals" data-view="goals">Goal</a>
+      <a href="#help" data-view="help">How to use</a>
     </nav>
     <p class="tag">Right product.<br />Right department.<br />Right customers.</p>
   </aside>
@@ -120,6 +121,63 @@
         <button class="primary" type="submit">Add to crew</button>
       </form>
       <div class="tbl" id="crewTable"></div>
+    </div>
+  </section>
+
+  <!-- HELP -->
+  <section id="v-help" data-v hidden>
+    <div class="panel help">
+      <div><h2>How to use Truck Efficiency</h2><p class="sub">Measure UPH for each received truck, see where the labor went, and plan the next crew.</p></div>
+
+      <h3>1. Build your crew first</h3>
+      <ol>
+        <li>Open the <a href="#crew">Crew</a> tab.</li>
+        <li>Enter each person's <b>first name</b>, pick <b>Full-time</b> or <b>Part-time</b>, and click <b>Add to crew</b>. Each person is saved right away.</li>
+        <li>To fix a spelling, click <b>Edit name</b>. When someone leaves the company, click <b>Remove</b> twice to confirm. Past trucks keep their name and hours.</li>
+      </ol>
+
+      <h3>2. Enter a received truck</h3>
+      <ol>
+        <li>Open <a href="#entry">Enter truck</a> and fill in the totals from the manifest: <b>Manifest #</b>, <b>Date received</b>, <b>Total units</b>, Pallets, Total OMS orders and Total manifest validation units.</li>
+        <li>Under <b>Labor by step</b>, add the time each person spent on each step:
+          <ul>
+            <li><b>Add person:</b> pick a name, then enter the start and end time. Full-time or part-time fills in from the Crew tab.</li>
+            <li><b>Add several:</b> tick everyone who worked the same hours, enter one start and end time, and click <b>Add selected</b>.</li>
+            <li><b>Continue in…:</b> when someone moved to another step, pick that step under their row. A new row starts at their end time; enter the new end time.</li>
+          </ul></li>
+        <li>Enter only time spent on this truck. Leave out picks and other tasks.</li>
+        <li>Forgot someone? Go to <b>Crew</b>, add them, and come back. What you typed is kept. Don't refresh or close the page before saving.</li>
+      </ol>
+
+      <h3>3. Check before saving</h3>
+      <ul>
+        <li><b>Green bar</b> under <b>People on this truck</b>. A red bar names who is entered twice at the same time, or a row that is missing a name or time. The truck can't be saved until it's fixed.</li>
+        <li><b>Hours worked</b> for each person looks right, with no unusually long shifts.</li>
+        <li><b>Manifest #</b> and <b>Total units</b> are correct.</li>
+      </ul>
+      <p class="warn-note"><b>Saved trucks are locked.</b> They can't be opened, changed or deleted, so check carefully before you click Save truck.</p>
+
+      <h3>4. Save and read the analysis</h3>
+      <ol>
+        <li>Click <b>Save truck</b>. The truck is saved and locked, and the <b>Truck analysis</b> appears: UPH against the 90 standard, the step that took the most time, staffing (peak crew and gaps), lunches, and how it compares with your other trucks.</li>
+        <li>Click <b>New truck</b> to enter the next one.</li>
+      </ol>
+
+      <h3>5. Dashboard</h3>
+      <p><b>UPH by truck</b> shows one point per truck, oldest to newest, green at or above 90 and red below. The <b>Trucks</b> list shows each manifest's units, labor hours by step and UPH.</p>
+
+      <h3>6. Plan a truck</h3>
+      <p>Before a truck, open <a href="#plan">Plan</a>. Enter the manifest units, the UPH plan (standard 90), the full-time and part-time crew with hours each, and hours on picks and other tasks. <b>Will the truck get done?</b> answers yes or no, shows units per person, and suggests how to close any gap.</p>
+
+      <h3>How the numbers work</h3>
+      <ul>
+        <li><b>UPH</b> = manifest total units ÷ downstocking labor hours.</li>
+        <li><b>Downstocking labor</b> = break down pallets + validate manifest items + downstock totes and pallets. Unloading is shown but not counted.</li>
+        <li><b>Labor hours</b> = each person's time on each step, added up.</li>
+        <li><b>Lunch:</b> a 40 min unpaid lunch comes out for each full-time employee whose truck hours total more than 5. Part-time 15 min breaks are paid and stay in.</li>
+        <li><b>Goal:</b> 90 UPH by default, set on the <a href="#goals">Goal</a> tab.</li>
+      </ul>
+
     </div>
   </section>
 
