@@ -13,10 +13,10 @@
   <aside class="side">
     <div class="logo"><img src="./assets/TF1.png" alt="Truck Efficiency" /></div>
     <nav class="tabs" aria-label="Sections">
+      <a href="#crew" data-view="crew">Crew</a>
       <a href="#entry" data-view="entry">Enter truck</a>
       <a href="#dashboard" data-view="dashboard">Dashboard</a>
       <a href="#plan" data-view="plan">Plan</a>
-      <a href="#crew" data-view="crew">Crew</a>
       <a href="#goals" data-view="goals">Goal</a>
     </nav>
     <p class="tag">Right product.<br />Right department.<br />Right customers.</p>
@@ -43,7 +43,7 @@
           </div>
         </div>
         <div class="panel">
-          <div><h2>Labor by step</h2><p class="sub">Add one row per person for each step they worked: first name, full-time or part-time, and the time they spent on that step. If someone moved between steps, add a row for them in each step with the times they were there.</p></div>
+          <div><h2>Labor by step</h2><p class="sub">Pick each person from your crew for every step they worked, with the time they spent on that step. If someone moved between steps, use Continue in… to add them to the next step.</p></div>
           <div id="laborRows" style="display:flex;flex-direction:column;gap:12px"></div>
           <datalist id="nameList"></datalist>
         </div>
@@ -112,11 +112,11 @@
   <!-- CREW -->
   <section id="v-crew" data-v hidden>
     <div class="panel" style="max-width:760px">
-      <div><h2>Crew roster</h2><p class="sub">Your regular team, each with full-time or part-time saved once. On Enter truck, pick names from this list and the type fills in. New names are added here automatically when you save a truck.</p></div>
+      <div><h2>Crew</h2><p class="sub">Build your crew first. Each person is saved once with full-time or part-time, and shared with everyone using the app. On Enter truck you pick people from this list, and their type fills in.</p></div>
       <form class="row" id="crewForm" autocomplete="off">
         <label class="f">First name<input id="cName" maxlength="30" required></label>
         <label class="f" style="flex:0 1 160px">Type<select id="cType"><option value="ft">Full-time</option><option value="pt">Part-time</option></select></label>
-        <button class="primary" type="submit">Add to roster</button>
+        <button class="primary" type="submit">Add to crew</button>
       </form>
       <div class="tbl" id="crewTable"></div>
     </div>

@@ -6,7 +6,7 @@ const STEPS=[
 ];
 const SBY=Object.fromEntries(STEPS.map(s=>[s.key,s]));
 const DAY=864e5,DEFAULT_GOAL=90;
-const S={roster:[],groupOpen:null,manifests:[],goal:DEFAULT_GOAL,sample:false,range:'30d',editId:null,labor:null};
+const S={roster:[],groupOpen:null,crewEdit:null,rosterLoaded:false,manifests:[],goal:DEFAULT_GOAL,sample:false,range:'30d',editId:null,labor:null};
 let db=null,userCap=null,myId=null,canEdit=false,dbState='connecting';
 
 const $=s=>document.querySelector(s);
@@ -93,20 +93,20 @@ function renderBanner(){
     nodb:'You can try the calculator, but saving needs you to open this page signed in to claude.ai.',slow:'The shared log is taking a while to answer. Trucks will appear when it connects.',
     error:'Could not load the shared log. Reload the page to try again.'}[dbState];
 }
-$('#sampleBtn').onclick=()=>{S.sample=!S.sample;renderAll()};
+$('#sampleBtn').onclick=()=>{S.sample=!S.sample;renderAll();renderLabor()};
 
 /* ---------- entry form ---------- */
 const blankRow=()=>({name:'',type:'ft',start:'',end:''});
 function blankLabor(){return Object.fromEntries(STEPS.map(s=>[s.key,[blankRow()]]))}
 const formRows=()=>STEPS.flatMap(s=>S.labor[s.key].map(r=>({...r,stage:s.key})));
 function renderLabor(){
-  const roster=rosterAll();
-  $('#laborRows').innerHTML=STEPS.map(s=>`<div class="steprow t-${s.team}">
+  const roster=activeRoster();
+  $('#laborRows').innerHTML=(roster.length?'':`<div class="banner crewnote"><span class="msg"><b>Build your crew first.</b> Add your team on the Crew tab, then pick them here.</span><a class="small" href="#crew" style="font-weight:600">Go to Crew</a></div>`)+STEPS.map(s=>`<div class="steprow t-${s.team}">
     <div class="sh"><span><span class="code">${s.code}</span> <b>${esc(s.name)}</b>${s.note?`<br><small style="opacity:.85">${esc(s.note)}</small>`:''}</span>
       <span class="calc" id="sh-${s.key}"></span></div>
     ${S.labor[s.key].map((r,i)=>`<div class="crew">
-      <label>First name<input id="lr-${s.key}-${i}-name" data-k="${s.key}" data-i="${i}" data-f="name" maxlength="30" list="nameList" autocomplete="off" value="${esc(r.name)}"></label>
-      <label>Type<select id="lr-${s.key}-${i}-type" data-k="${s.key}" data-i="${i}" data-f="type"><option value="ft" ${r.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${r.type==='pt'?'selected':''}>Part-time</option></select></label>
+      <label>Name<select id="lr-${s.key}-${i}-name" data-k="${s.key}" data-i="${i}" data-f="name">${nameOptions(r.name)}</select></label>
+      <label>Type<select id="lr-${s.key}-${i}-type" data-k="${s.key}" data-i="${i}" data-f="type" ${rosterType(r.name)?'disabled title="Set on the Crew tab"':''}><option value="ft" ${r.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${r.type==='pt'?'selected':''}>Part-time</option></select></label>
       <label>Start<input id="lr-${s.key}-${i}-start" data-k="${s.key}" data-i="${i}" data-f="start" type="time" value="${esc(r.start)}"></label>
       <label>End<input id="lr-${s.key}-${i}-end" data-k="${s.key}" data-i="${i}" data-f="end" type="time" value="${esc(r.end)}"></label>
       <span class="lh" id="lh-${s.key}-${i}" hidden><span class="calc" id="lhv-${s.key}-${i}"></span>
@@ -118,13 +118,17 @@ function renderLabor(){
   </div>`).join('');
   updateResult();
 }
+function nameOptions(cur){
+  const act=activeRoster(),n=String(cur||'').trim(),has=act.some(p=>normName(p.name)===normName(n));
+  return `<option value="">Choose…</option>`+(n&&!has?`<option value="${esc(n)}" selected>${esc(n)} (not on crew)</option>`:'')+act.map(p=>`<option value="${esc(p.name)}" ${normName(p.name)===normName(n)?'selected':''}>${esc(p.name)} · ${p.type==='pt'?'PT':'FT'}</option>`).join('');
+}
 function groupPanel(s,roster){
   const inStep=new Set(S.labor[s.key].map(r=>normName(r.name)).filter(Boolean));
   const list=roster.filter(p=>!inStep.has(normName(p.name)));
   return `<div class="group" id="grp-${s.key}">
     <b>Add several people to ${esc(s.name)}</b>
     ${list.length?`<div class="gnames">${list.map((p,i)=>`<label><input type="checkbox" class="gchk" id="gc-${s.key}-${i}" value="${esc(p.name)}"> ${esc(p.name)} <small>${p.type==='pt'?'PT':'FT'}</small></label>`).join('')}</div>`
-      :`<p class="sub">${roster.length?'Everyone on the roster is already in this step.':'No one on the crew roster yet. Add names on the Crew tab, or they are added automatically when you save a truck.'}</p>`}
+      :`<p class="sub">${roster.length?'Everyone on your crew is already in this step.':'No one on your crew yet. Add your team on the Crew tab first.'}</p>`}
     <div class="gtimes"><label>Start<input type="time" id="gs-${s.key}"></label><label>End<input type="time" id="ge-${s.key}"></label>
       <button class="small primary" type="button" data-gadd="${s.key}">Add selected</button><button class="small" type="button" data-gcancel="${s.key}">Cancel</button></div>
   </div>`;
@@ -136,9 +140,9 @@ function onRowEdit(e){const t=e.target;
     addRows(to,[{name:nm(src),type:src.type==='pt'?'pt':'ft',start:src.end||'',end:''}]);renderLabor();
     const n=S.labor[to].length-1,el=$(`#lr-${to}-${n}-end`);if(el){el.focus();el.scrollIntoView({block:'center'})}toast(`${nm(src)} added to ${SBY[to].name} from ${src.end?clock(+src.end.slice(0,2)*60+ +src.end.slice(3)):'their end time'}. Enter the end time.`);return}
   if(!t.dataset||!t.dataset.k||!t.dataset.f)return;const row=S.labor[t.dataset.k][+t.dataset.i];row[t.dataset.f]=t.value;
-  if(t.dataset.f==='name'&&e.type==='change'&&nm(row)){
+  if(t.dataset.f==='name'&&nm(row)){
     const known=rosterType(row.name)||(formRows().find(x=>x!==row&&normName(x.name)===normName(row.name)&&!(x.stage===t.dataset.k&&x.start===row.start&&x.end===row.end))||{}).type;
-    if(known){row.type=known;const sel=$(`#lr-${t.dataset.k}-${t.dataset.i}-type`);if(sel)sel.value=known}}
+    const sel=$(`#lr-${t.dataset.k}-${t.dataset.i}-type`);if(known){row.type=known;if(sel)sel.value=known}if(sel)sel.disabled=!!rosterType(row.name)}
   updateResult()}
 $('#laborRows').addEventListener('input',onRowEdit);$('#laborRows').addEventListener('change',onRowEdit);
 $('#laborRows').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
@@ -181,7 +185,6 @@ $('#truckForm').addEventListener('submit',async e=>{
   const ck=personCheck(m,formRows());if(ck&&ck.block){toast(ck.msg);$('#crewCheck').scrollIntoView({block:'center'});return}
   const st=stats(m);
   try{
-    saveRosterNames(m);
     if(S.editId){await db.doc('manifests/'+S.editId).update({...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`)}
     else{const ref=await db.collection('manifests').add({...m,createdAt:Date.now(),createdBy:myId||null});S.editId=ref.id;$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved: ${uphFmt(st.uph)} UPH`)}
   }catch(err){writeErr(err)}
@@ -296,6 +299,7 @@ const rosterId=n=>'n_'+normName(n).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'
 function rosterAll(){
   if(S.sample){const m={};SAMPLE.forEach(t=>(t.labor||[]).forEach(r=>{if(nm(r))m[normName(r.name)]={name:nm(r),type:r.type==='pt'?'pt':'ft'}}));return Object.values(m).sort((a,b)=>a.name.localeCompare(b.name))}
   return [...S.roster].sort((a,b)=>a.name.localeCompare(b.name))}
+const activeRoster=()=>rosterAll().filter(p=>p.active!==false);
 const rosterType=n=>{const p=rosterAll().find(x=>normName(x.name)===normName(n));return p?p.type:null};
 async function saveRosterNames(m){
   if(!db||S.sample)return;const have=new Set(S.roster.map(p=>normName(p.name)));
@@ -303,18 +307,32 @@ async function saveRosterNames(m){
     try{await db.doc('roster/'+rosterId(p.name)).set({name:p.name,type:p.type,createdAt:Date.now(),createdBy:myId||null})}catch(_){}}
 }
 function renderCrew(){
-  const list=rosterAll(),ro=S.sample||!db;
-  $('#crewTable').innerHTML=list.length?`<table><thead><tr><th>Name</th><th>Type</th><th></th></tr></thead><tbody>${list.map(p=>`<tr><td><b>${esc(p.name)}</b></td>
-    <td><select data-rtype="${esc(p.id||'')}" ${ro?'disabled':''} style="max-width:160px" aria-label="Type for ${esc(p.name)}"><option value="ft" ${p.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${p.type==='pt'?'selected':''}>Part-time</option></select></td>
-    <td>${ro?'':`<button class="small danger" type="button" data-rdel="${esc(p.id)}">Remove</button>`}</td></tr>`).join('')}</tbody></table>`
-    :`<div class="empty">No one on the roster yet. Add your regular team above, or save a truck and its names are added for you.</div>`;
+  const all=rosterAll(),act=all.filter(p=>p.active!==false),left=all.filter(p=>p.active===false),ro=S.sample||!db;
+  const row=p=>{const ed=S.crewEdit===p.id&&!ro;return `<tr><td>${ed?`<span class="crewedit"><input id="ce-name" maxlength="30" value="${esc(p.name)}" aria-label="Name"><button class="small primary" type="button" data-csave="${esc(p.id)}">Save</button><button class="small" type="button" data-ccancel>Cancel</button></span>`:`<b>${esc(p.name)}</b>${p.active===false?' <span class="tag-left">No longer with company</span>':''}`}</td>
+    <td><select data-rtype="${esc(p.id||'')}" ${ro?'disabled':''} style="min-width:124px;max-width:150px" aria-label="Type for ${esc(p.name)}"><option value="ft" ${p.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${p.type==='pt'?'selected':''}>Part-time</option></select></td>
+    <td style="white-space:nowrap">${ro||ed?'':`<button class="small" type="button" data-cedit="${esc(p.id)}">Edit name</button> ${p.active===false?`<button class="small" type="button" data-cact="${esc(p.id)}">Reactivate</button>`:`<button class="small" type="button" data-cleft="${esc(p.id)}">No longer with company</button>`} <button class="small danger" type="button" data-rdel="${esc(p.id)}">Remove</button>`}</td></tr>`};
+  const head=`<thead><tr><th>Name</th><th>Type</th><th></th></tr></thead>`;
+  $('#crewTable').innerHTML=(all.length?`<p class="sub" style="margin:0 0 8px">${act.length} active${left.length?` · ${left.length} no longer with company`:''}. ${ro?'':'Saved and shared with everyone using the app.'}</p>`:'')+
+    (act.length?`<table>${head}<tbody>${act.map(row).join('')}</tbody></table>`:`<div class="empty">No active crew yet. Add your team above. Each person is saved as soon as you add them.</div>`)+
+    (left.length?`<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">No longer with company (${left.length})</summary><p class="sub">Hidden from new trucks. Past trucks keep their names. Reactivate if someone comes back.</p><table>${head}<tbody>${left.map(row).join('')}</tbody></table></details>`:'');
 }
 $('#crewForm').addEventListener('submit',async e=>{e.preventDefault();if(!canWrite())return;const n=$('#cName').value.trim();if(!n)return;
-  try{await db.doc('roster/'+rosterId(n)).set({name:n,type:$('#cType').value,createdAt:Date.now(),createdBy:myId||null});$('#cName').value='';toast(`${n} added to the roster`)}catch(err){writeErr(err)}});
+  const ex=S.roster.find(p=>normName(p.name)===normName(n));
+  if(ex&&ex.active!==false){toast(`${ex.name} is already on your crew.`);return}
+  try{if(ex){await db.doc('roster/'+ex.id).update({active:true,type:$('#cType').value});toast(`${ex.name} is back on the crew. Saved.`)}
+    else{await db.doc('roster/'+rosterId(n)).set({name:n,type:$('#cType').value,active:true,createdAt:Date.now(),createdBy:myId||null});toast(`${n} saved to your crew`)}
+    $('#cName').value='';$('#cName').focus()}catch(err){writeErr(err)}});
 $('#crewTable').addEventListener('change',async e=>{const id=e.target.dataset&&e.target.dataset.rtype;if(!id||!canWrite())return;
-  try{await db.doc('roster/'+id).update({type:e.target.value});toast('Type updated')}catch(err){writeErr(err)}});
-$('#crewTable').addEventListener('click',e=>{const b=e.target.closest('[data-rdel]');if(!b)return;const id=b.dataset.rdel;
-  arm(b,'Confirm remove',async()=>{if(!canWrite())return;try{await db.doc('roster/'+id).delete();toast('Removed from the roster')}catch(err){writeErr(err)}})});
+  try{await db.doc('roster/'+id).update({type:e.target.value});toast('Type saved')}catch(err){writeErr(err)}});
+$('#crewTable').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.cedit){S.crewEdit=b.dataset.cedit;renderCrew();const i=$('#ce-name');if(i){i.focus();i.select()}return}
+  if(b.hasAttribute('data-ccancel')){S.crewEdit=null;renderCrew();return}
+  if(b.dataset.csave){if(!canWrite())return;const id=b.dataset.csave,n=$('#ce-name').value.trim();if(!n){toast('Enter a name.');return}
+    if(S.roster.some(p=>p.id!==id&&normName(p.name)===normName(n))){toast(`${n} is already on the crew list.`);return}
+    try{await db.doc('roster/'+id).update({name:n});S.crewEdit=null;toast('Name saved. Past trucks keep the name they were saved with.')}catch(err){writeErr(err)}return}
+  if(b.dataset.cleft){if(!canWrite())return;const id=b.dataset.cleft,p=S.roster.find(x=>x.id===id);arm(b,'Confirm',async()=>{try{await db.doc('roster/'+id).update({active:false,leftAt:Date.now()});toast(`${p?p.name:'Person'} marked as no longer with company. Past trucks are unchanged.`)}catch(err){writeErr(err)}});return}
+  if(b.dataset.cact){if(!canWrite())return;try{await db.doc('roster/'+b.dataset.cact).update({active:true});toast('Reactivated and saved')}catch(err){writeErr(err)}return}
+  if(b.dataset.rdel){const id=b.dataset.rdel;arm(b,'Confirm remove',async()=>{if(!canWrite())return;try{await db.doc('roster/'+id).delete();toast('Removed from the crew list. Past trucks are unchanged.')}catch(err){writeErr(err)}})}});
 
 function renderAll(){renderBanner();renderDashboard();renderGoals();updateResult();renderPlanInputs();renderCrew()}
 resetForm();route();renderAll();
@@ -327,6 +345,6 @@ resetForm();route();renderAll();
   if(!db){clearTimeout(slow);dbState='nodb';renderAll();return}
   const ok=()=>{clearTimeout(slow);dbState='live'},fail=()=>{clearTimeout(slow);dbState='error';renderBanner()};
   db.collection('manifests').orderBy('date','desc').limit(1000).onSnapshot(s=>{ok();S.manifests=s.docs.map(d=>({id:d.id,...d.data()}));renderAll()},fail);
-  db.collection('roster').limit(500).onSnapshot(s=>{ok();S.roster=s.docs.map(d=>({id:d.id,...d.data()})).filter(p=>nm(p));renderCrew();updateResult()},fail);
+  db.collection('roster').limit(500).onSnapshot(s=>{ok();S.roster=s.docs.map(d=>({id:d.id,...d.data()})).filter(p=>nm(p));const first=!S.rosterLoaded;S.rosterLoaded=true;renderCrew();renderLabor();if(first&&!S.roster.length&&!location.hash)location.hash='crew'},fail);
   db.doc('settings/goals').onSnapshot(s=>{ok();const g=s.exists&&Number(s.data().uph);S.goal=g>0?g:DEFAULT_GOAL;renderAll()},fail);
 })();

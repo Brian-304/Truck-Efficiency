@@ -155,3 +155,9 @@ details.recv summary{cursor:pointer;font-weight:600}
 .gnames small{color:var(--muted);font-weight:400}
 .group .gtimes{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
 .group .gtimes label{display:flex;flex-direction:column;gap:2px;font-size:12px;font-weight:500;flex:0 1 150px}
+
+.crew select:disabled{opacity:1;color:var(--muted)}
+.crewnote{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.tag-left{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:var(--line);color:var(--muted)}
+.crewedit{display:flex;gap:6px;align-items:center}
+.crewedit input{min-height:34px;padding:4px 8px;max-width:180px}
