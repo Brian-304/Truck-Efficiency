@@ -6,7 +6,7 @@ const STEPS=[
 ];
 const SBY=Object.fromEntries(STEPS.map(s=>[s.key,s]));
 const DAY=864e5,DEFAULT_GOAL=90;
-const S={manifests:[],goal:DEFAULT_GOAL,sample:false,range:'30d',editId:null,labor:null};
+const S={roster:[],groupOpen:null,crewEdit:null,rosterLoaded:false,manifests:[],goal:DEFAULT_GOAL,sample:false,range:'30d',editId:null,labor:null};
 let db=null,userCap=null,myId=null,canEdit=false,dbState='connecting';
 
 const $=s=>document.querySelector(s);
@@ -79,7 +79,7 @@ function canWrite(){
 function writeErr(e){toast(e&&e.code==='not_granted'?'You have view-only access. Ask the owner for edit access.':'Could not save. Check your connection and try again.')}
 
 /* routing */
-const VIEWS=['entry','dashboard','plan','goals'];
+const VIEWS=['entry','dashboard','plan','crew','goals'];
 function route(){let v=location.hash.slice(1);if(!VIEWS.includes(v))v='entry';
   document.querySelectorAll('[data-v]').forEach(s=>s.hidden=s.id!=='v-'+v);
   document.querySelectorAll('nav.tabs a').forEach(a=>{if(a.dataset.view===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});}
@@ -93,34 +93,64 @@ function renderBanner(){
     nodb:'You can try the calculator, but saving needs you to open this page signed in to claude.ai.',slow:'The shared log is taking a while to answer. Trucks will appear when it connects.',
     error:'Could not load the shared log. Reload the page to try again.'}[dbState];
 }
-$('#sampleBtn').onclick=()=>{S.sample=!S.sample;renderAll()};
+$('#sampleBtn').onclick=()=>{S.sample=!S.sample;renderAll();renderLabor()};
 
 /* ---------- entry form ---------- */
 const blankRow=()=>({name:'',type:'ft',start:'',end:''});
 function blankLabor(){return Object.fromEntries(STEPS.map(s=>[s.key,[blankRow()]]))}
 const formRows=()=>STEPS.flatMap(s=>S.labor[s.key].map(r=>({...r,stage:s.key})));
 function renderLabor(){
-  $('#laborRows').innerHTML=STEPS.map(s=>`<div class="steprow t-${s.team}">
+  const roster=activeRoster();
+  $('#laborRows').innerHTML=(roster.length?'':`<div class="banner crewnote"><span class="msg"><b>Build your crew first.</b> Add your team on the Crew tab, then pick them here.</span><a class="small" href="#crew" style="font-weight:600">Go to Crew</a></div>`)+STEPS.map(s=>`<div class="steprow t-${s.team}">
     <div class="sh"><span><span class="code">${s.code}</span> <b>${esc(s.name)}</b>${s.note?`<br><small style="opacity:.85">${esc(s.note)}</small>`:''}</span>
       <span class="calc" id="sh-${s.key}"></span></div>
     ${S.labor[s.key].map((r,i)=>`<div class="crew">
-      <label>First name<input id="lr-${s.key}-${i}-name" data-k="${s.key}" data-i="${i}" data-f="name" maxlength="30" list="nameList" autocomplete="off" value="${esc(r.name)}"></label>
-      <label>Type<select id="lr-${s.key}-${i}-type" data-k="${s.key}" data-i="${i}" data-f="type"><option value="ft" ${r.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${r.type==='pt'?'selected':''}>Part-time</option></select></label>
+      <label>Name<select id="lr-${s.key}-${i}-name" data-k="${s.key}" data-i="${i}" data-f="name">${nameOptions(r.name)}</select></label>
+      <label>Type<select id="lr-${s.key}-${i}-type" data-k="${s.key}" data-i="${i}" data-f="type" ${rosterType(r.name)?'disabled title="Set on the Crew tab"':''}><option value="ft" ${r.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${r.type==='pt'?'selected':''}>Part-time</option></select></label>
       <label>Start<input id="lr-${s.key}-${i}-start" data-k="${s.key}" data-i="${i}" data-f="start" type="time" value="${esc(r.start)}"></label>
       <label>End<input id="lr-${s.key}-${i}-end" data-k="${s.key}" data-i="${i}" data-f="end" type="time" value="${esc(r.end)}"></label>
-      <span class="lh" id="lh-${s.key}-${i}"></span>
+      <span class="lh" id="lh-${s.key}-${i}" hidden><span class="calc" id="lhv-${s.key}-${i}"></span>
+        <select class="cont" id="ct-${s.key}-${i}" data-ck="${s.key}" data-ci="${i}" aria-label="Continue this person in another step"><option value="">Continue in…</option>${STEPS.filter(x=>x.key!==s.key).map(x=>`<option value="${x.key}">${esc(x.name)}</option>`).join('')}</select></span>
       ${S.labor[s.key].length>1?`<button class="small rm" type="button" data-rm="${s.key}|${i}" aria-label="Remove this row" title="Remove this row">✕</button>`:'<span></span>'}
     </div>`).join('')}
-    <div><button class="small" type="button" data-add="${s.key}">Add person</button></div>
+    ${S.groupOpen===s.key?groupPanel(s,roster):''}
+    <div class="stepbtns"><button class="small" type="button" data-add="${s.key}">Add person</button><button class="small" type="button" data-gopen="${s.key}">Add several</button></div>
   </div>`).join('');
   updateResult();
 }
-function onRowEdit(e){const t=e.target;if(!t.dataset||!t.dataset.k)return;const row=S.labor[t.dataset.k][+t.dataset.i];row[t.dataset.f]=t.value;
-  if(t.dataset.f==='name'&&e.type==='change'){    const other=formRows().filter(x=>normName(x.name)===normName(row.name)&&!(x.stage===t.dataset.k&&x.start===row.start&&x.end===row.end&&x.type===row.type));
-    if(nm(row)&&other.length){row.type=other[0].type||'ft';const sel=$(`#lr-${t.dataset.k}-${t.dataset.i}-type`);if(sel)sel.value=row.type}}
+function nameOptions(cur){
+  const act=activeRoster(),n=String(cur||'').trim(),has=act.some(p=>normName(p.name)===normName(n));
+  return `<option value="">Choose…</option>`+(n&&!has?`<option value="${esc(n)}" selected>${esc(n)} (not on crew)</option>`:'')+act.map(p=>`<option value="${esc(p.name)}" ${normName(p.name)===normName(n)?'selected':''}>${esc(p.name)} · ${p.type==='pt'?'PT':'FT'}</option>`).join('');
+}
+function groupPanel(s,roster){
+  const inStep=new Set(S.labor[s.key].map(r=>normName(r.name)).filter(Boolean));
+  const list=roster.filter(p=>!inStep.has(normName(p.name)));
+  return `<div class="group" id="grp-${s.key}">
+    <b>Add several people to ${esc(s.name)}</b>
+    ${list.length?`<div class="gnames">${list.map((p,i)=>`<label><input type="checkbox" class="gchk" id="gc-${s.key}-${i}" value="${esc(p.name)}"> ${esc(p.name)} <small>${p.type==='pt'?'PT':'FT'}</small></label>`).join('')}</div>`
+      :`<p class="sub">${roster.length?'Everyone on your crew is already in this step.':'No one on your crew yet. Add your team on the Crew tab first.'}</p>`}
+    <div class="gtimes"><label>Start<input type="time" id="gs-${s.key}"></label><label>End<input type="time" id="ge-${s.key}"></label>
+      <button class="small primary" type="button" data-gadd="${s.key}">Add selected</button><button class="small" type="button" data-gcancel="${s.key}">Cancel</button></div>
+  </div>`;
+}
+const isBlank=r=>!nm(r)&&!r.start&&!r.end;
+function addRows(k,rows){S.labor[k]=S.labor[k].filter(r=>!isBlank(r)).concat(rows);if(!S.labor[k].length)S.labor[k]=[blankRow()]}
+function onRowEdit(e){const t=e.target;
+  if(t.classList&&t.classList.contains('cont')){if(e.type!=='change'||!t.value)return;const k=t.dataset.ck,i=+t.dataset.ci,src=S.labor[k][i],to=t.value;
+    addRows(to,[{name:nm(src),type:src.type==='pt'?'pt':'ft',start:src.end||'',end:''}]);renderLabor();
+    const n=S.labor[to].length-1,el=$(`#lr-${to}-${n}-end`);if(el){el.focus();el.scrollIntoView({block:'center'})}toast(`${nm(src)} added to ${SBY[to].name} from ${src.end?clock(+src.end.slice(0,2)*60+ +src.end.slice(3)):'their end time'}. Enter the end time.`);return}
+  if(!t.dataset||!t.dataset.k||!t.dataset.f)return;const row=S.labor[t.dataset.k][+t.dataset.i];row[t.dataset.f]=t.value;
+  if(t.dataset.f==='name'&&nm(row)){
+    const known=rosterType(row.name)||(formRows().find(x=>x!==row&&normName(x.name)===normName(row.name)&&!(x.stage===t.dataset.k&&x.start===row.start&&x.end===row.end))||{}).type;
+    const sel=$(`#lr-${t.dataset.k}-${t.dataset.i}-type`);if(known){row.type=known;if(sel)sel.value=known}if(sel)sel.disabled=!!rosterType(row.name)}
   updateResult()}
 $('#laborRows').addEventListener('input',onRowEdit);$('#laborRows').addEventListener('change',onRowEdit);
 $('#laborRows').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.gopen){S.groupOpen=S.groupOpen===b.dataset.gopen?null:b.dataset.gopen;renderLabor();return}
+  if(b.dataset.gcancel){S.groupOpen=null;renderLabor();return}
+  if(b.dataset.gadd){const k=b.dataset.gadd,st=$('#gs-'+k).value,en=$('#ge-'+k).value,names=[...document.querySelectorAll(`#grp-${k} .gchk:checked`)].map(x=>x.value);
+    if(!names.length){toast('Tick at least one name.');return}if(!st||!en){toast('Enter the start and end time for the group.');return}
+    addRows(k,names.map(n=>({name:n,type:rosterType(n)||'ft',start:st,end:en})));S.groupOpen=null;renderLabor();toast(`Added ${names.length} ${names.length>1?'people':'person'} to ${SBY[k].name}`);return}
   if(b.dataset.add){S.labor[b.dataset.add].push(blankRow());renderLabor();const n=S.labor[b.dataset.add].length-1;$(`#lr-${b.dataset.add}-${n}-name`).focus()}
   if(b.dataset.rm){const[k,i]=b.dataset.rm.split('|');S.labor[k].splice(+i,1);renderLabor()}});
 ['tUnits','tPallets','tOms','tMvu'].forEach(id=>$('#'+id).addEventListener('input',updateResult));
@@ -129,8 +159,8 @@ function formManifest(){const n=id=>Math.max(0,Math.round(Number($(id).value)||0
   return{ref:$('#tRef').value.trim(),date:$('#tDate').value,units:n('#tUnits'),pallets:n('#tPallets'),oms:n('#tOms'),mvu:n('#tMvu'),labor}}
 function updateResult(){
   const m=formManifest(),st=stats(m),ps=people(m);
-  STEPS.forEach(s=>{S.labor[s.key].forEach((r,i)=>{const el=$(`#lh-${s.key}-${i}`);if(el){const c=rowCalc(r);el.textContent=c.hrs>0?`= ${hrs1(c.hrs)} hrs`:''}});const sh=$('#sh-'+s.key);if(sh)sh.textContent=st.raw[s.key]>0?`${hrs1(st.raw[s.key])} hrs before lunches`:''});
-  $('#nameList').innerHTML=ps.map(p=>`<option value="${esc(p.name)}">`).join('');
+  STEPS.forEach(s=>{S.labor[s.key].forEach((r,i)=>{const el=$(`#lh-${s.key}-${i}`);if(el){const c=rowCalc(r);el.hidden=!(c.hrs>0);const v=$(`#lhv-${s.key}-${i}`);if(v)v.textContent=c.hrs>0?`= ${hrs1(c.hrs)} hrs`:'';const ct=$(`#ct-${s.key}-${i}`);if(ct)ct.hidden=!nm(r)}});const sh=$('#sh-'+s.key);if(sh)sh.textContent=st.raw[s.key]>0?`${hrs1(st.raw[s.key])} hrs before lunches`:''});
+  {const seen=new Set(),opts=[];rosterAll().concat(ps).forEach(p=>{const k=normName(p.name);if(k&&!seen.has(k)){seen.add(k);opts.push(p.name)}});$('#nameList').innerHTML=opts.map(n=>`<option value="${esc(n)}">`).join('')}
   const ck=personCheck(m,formRows()),cb=$('#crewCheck');cb.hidden=!ck;if(ck){cb.textContent=ck.msg;cb.className='banner '+(ck.block?'bad':'ok')}
   $('#peopleTable').innerHTML=peopleTable(ps);
   const u=st.uph;$('#rUph').textContent=uphFmt(u);$('#rUph').className='uph-big'+(u==null?'':good(u)?' uph-good':' uph-bad');
@@ -264,7 +294,53 @@ function planAnalysis(p){
 ['pUnits','pUph','pFt','pFtH','pPt','pPtH','pOther'].forEach(i=>$('#'+i).addEventListener('input',updatePlan));
 $('#planForm').addEventListener('submit',e=>e.preventDefault());
 
-function renderAll(){renderBanner();renderDashboard();renderGoals();updateResult();renderPlanInputs()}
+/* ---------- crew storage: shared storage on claude.ai, this browser everywhere else ---------- */
+const LOCAL_CREW='truck-efficiency-crew';
+function localCrewLoad(){try{const a=JSON.parse(localStorage.getItem(LOCAL_CREW)||'[]');return Array.isArray(a)?a.filter(p=>p&&p.id&&nm(p)):[]}catch(_){return []}}
+function localCrewSave(){try{localStorage.setItem(LOCAL_CREW,JSON.stringify(S.roster));return true}catch(_){return false}}
+function crewCanWrite(){if(S.sample){toast('Sample preview is on. Turn it off to change your crew.');return false}return true}
+function crewLocalDone(ok){if(!ok){toast('This browser blocked saving. Check that it is not in private browsing.');return false}renderCrew();renderLabor();return true}
+async function crewSet(id,data){if(db)return db.doc('roster/'+id).set(data);S.roster=S.roster.filter(p=>p.id!==id).concat({id,...data});if(!crewLocalDone(localCrewSave()))throw {code:'local'}}
+async function crewUpdate(id,patch){if(db)return db.doc('roster/'+id).update(patch);S.roster=S.roster.map(p=>p.id===id?{...p,...patch}:p);if(!crewLocalDone(localCrewSave()))throw {code:'local'}}
+async function crewDelete(id){if(db)return db.doc('roster/'+id).delete();S.roster=S.roster.filter(p=>p.id!==id);if(!crewLocalDone(localCrewSave()))throw {code:'local'}}
+const crewErr=err=>{if(!err||err.code!=='local')writeErr(err)};
+/* ---------- crew roster ---------- */
+const rosterId=n=>'n_'+normName(n).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function rosterAll(){
+  if(S.sample){const m={};SAMPLE.forEach(t=>(t.labor||[]).forEach(r=>{if(nm(r))m[normName(r.name)]={name:nm(r),type:r.type==='pt'?'pt':'ft'}}));return Object.values(m).sort((a,b)=>a.name.localeCompare(b.name))}
+  return [...S.roster].sort((a,b)=>a.name.localeCompare(b.name))}
+const activeRoster=()=>rosterAll();
+const rosterType=n=>{const p=rosterAll().find(x=>normName(x.name)===normName(n));return p?p.type:null};
+async function saveRosterNames(m){
+  if(!db||S.sample)return;const have=new Set(S.roster.map(p=>normName(p.name)));
+  for(const p of people(m)){if(have.has(normName(p.name))||p.type==='mixed')continue;have.add(normName(p.name));
+    try{await db.doc('roster/'+rosterId(p.name)).set({name:p.name,type:p.type,createdAt:Date.now(),createdBy:myId||null})}catch(_){}}
+}
+function renderCrew(){
+  const all=rosterAll(),ro=S.sample;
+  const row=p=>{const ed=S.crewEdit===p.id&&!ro;return `<tr><td>${ed?`<span class="crewedit"><input id="ce-name" maxlength="30" value="${esc(p.name)}" aria-label="Name"><button class="small primary" type="button" data-csave="${esc(p.id)}">Save</button><button class="small" type="button" data-ccancel>Cancel</button></span>`:`<b>${esc(p.name)}</b>`}</td>
+    <td><select data-rtype="${esc(p.id||'')}" ${ro?'disabled':''} style="min-width:124px;max-width:150px" aria-label="Type for ${esc(p.name)}"><option value="ft" ${p.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${p.type==='pt'?'selected':''}>Part-time</option></select></td>
+    <td style="white-space:nowrap">${ro||ed?'':`<button class="small" type="button" data-cedit="${esc(p.id)}">Edit name</button> <button class="small danger" type="button" data-rdel="${esc(p.id)}">Remove</button>`}</td></tr>`};
+  const head=`<thead><tr><th>Name</th><th>Type</th><th></th></tr></thead>`;
+  $('#crewTable').innerHTML=(all.length?`<p class="sub" style="margin:0 0 8px">${all.length} on the crew. ${ro?'':(db?'Saved and shared with everyone using the app.':'Saved in this browser, so it is still here next time you open the app on this device.')+' Remove someone when they leave; past trucks keep their name and hours.'}</p>`:'')+
+    (all.length?`<table>${head}<tbody>${all.map(row).join('')}</tbody></table>`:`<div class="empty">No crew yet. Add your team above. Each person is saved as soon as you add them.</div>`);
+}
+$('#crewForm').addEventListener('submit',async e=>{e.preventDefault();if(!crewCanWrite())return;const n=$('#cName').value.trim();if(!n)return;
+  const ex=S.roster.find(p=>normName(p.name)===normName(n));
+  if(ex){toast(`${ex.name} is already on your crew.`);return}
+  try{await crewSet(rosterId(n),{name:n,type:$('#cType').value,createdAt:Date.now(),createdBy:myId||null});toast(`${n} saved to your crew`);
+    $('#cName').value='';$('#cName').focus()}catch(err){crewErr(err)}});
+$('#crewTable').addEventListener('change',async e=>{const id=e.target.dataset&&e.target.dataset.rtype;if(!id||!crewCanWrite())return;
+  try{await crewUpdate(id,{type:e.target.value});toast('Type saved')}catch(err){crewErr(err)}});
+$('#crewTable').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.cedit){S.crewEdit=b.dataset.cedit;renderCrew();const i=$('#ce-name');if(i){i.focus();i.select()}return}
+  if(b.hasAttribute('data-ccancel')){S.crewEdit=null;renderCrew();return}
+  if(b.dataset.csave){if(!crewCanWrite())return;const id=b.dataset.csave,n=$('#ce-name').value.trim();if(!n){toast('Enter a name.');return}
+    if(S.roster.some(p=>p.id!==id&&normName(p.name)===normName(n))){toast(`${n} is already on the crew list.`);return}
+    S.crewEdit=null;try{await crewUpdate(id,{name:n});toast('Name saved. Past trucks keep the name they were saved with.')}catch(err){crewErr(err)}renderCrew();return}
+  if(b.dataset.rdel){const id=b.dataset.rdel;arm(b,'Confirm remove',async()=>{if(!crewCanWrite())return;try{await crewDelete(id);toast('Removed from the crew. Past trucks keep their name and hours.')}catch(err){crewErr(err)}})}});
+
+function renderAll(){renderBanner();renderDashboard();renderGoals();updateResult();renderPlanInputs();renderCrew()}
 resetForm();route();renderAll();
 
 (async()=>{
@@ -272,8 +348,9 @@ resetForm();route();renderAll();
   const use=window.claude&&window.claude.use?n=>window.claude.use(n):async()=>null;
   [db,userCap]=await Promise.all([use('db'),use('user')]);
   if(userCap){try{canEdit=await userCap.canEdit();myId=await userCap.id()}catch(_){}}
-  if(!db){clearTimeout(slow);dbState='nodb';renderAll();return}
+  if(!db){clearTimeout(slow);dbState='nodb';S.roster=localCrewLoad();S.rosterLoaded=true;renderAll();renderLabor();if(!S.roster.length&&!location.hash)location.hash='crew';return}
   const ok=()=>{clearTimeout(slow);dbState='live'},fail=()=>{clearTimeout(slow);dbState='error';renderBanner()};
   db.collection('manifests').orderBy('date','desc').limit(1000).onSnapshot(s=>{ok();S.manifests=s.docs.map(d=>({id:d.id,...d.data()}));renderAll()},fail);
+  db.collection('roster').limit(500).onSnapshot(s=>{ok();S.roster=s.docs.map(d=>({id:d.id,...d.data()})).filter(p=>nm(p));const first=!S.rosterLoaded;S.rosterLoaded=true;renderCrew();renderLabor();if(first&&!S.roster.length&&!location.hash)location.hash='crew'},fail);
   db.doc('settings/goals').onSnapshot(s=>{ok();const g=s.exists&&Number(s.data().uph);S.goal=g>0?g:DEFAULT_GOAL;renderAll()},fail);
 })();
