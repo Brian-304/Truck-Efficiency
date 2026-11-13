@@ -180,7 +180,8 @@ function updateResult(){
   $('#rCalc').innerHTML=st.total>0?`${num(m.units)} units ÷ <b>${hrs1(st.total)} downstocking labor hrs</b> = <b>${uphFmt(u)} UPH</b>${st.ded>0?`<br>${hrs1(st.ded)} hrs of unpaid lunches taken out`:''}`:'';
   $('#rSteps').innerHTML=st.all>0?stepTable(STEPS.map(s=>({s,h:st.by[s.key],tot:m})),st.total,`<tr><td><b>Downstocking labor (UPH)</b></td><td class="n"><b>${hrs1(st.total)}</b></td><td class="n">100%</td><td class="vol"><b>${uphFmt(st.uph)} UPH</b></td></tr>`):'';
   renderAnalysis(m,st);
-  {const cb=$('#clearForm');if(cb)cb.textContent=S.editId?'New truck':'Clear'}
+  {const cb=$('#clearForm');if(cb)cb.textContent=S.locked?'New truck':'Clear';const sb=$('#saveBtn');if(sb)sb.textContent=S.locked?'Saved':'Save truck';
+   document.querySelectorAll('#truckForm input,#truckForm select,#truckForm button').forEach(el=>{if(el.id!=='clearForm')el.disabled=!!S.locked})}
 }
 /* ---------- truck analysis (shown once a truck is saved or opened) ---------- */
 const fmtDur=ms=>{const m=Math.round(ms/6e4);return m<60?m+' min':Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'};
@@ -214,7 +215,7 @@ function renderAnalysis(m,st){
   box.hidden=false;
   box.innerHTML=`<div class="ahead"><h3>Truck analysis</h3><span class="sub">${esc(m.ref||'This truck')}${m.date?' · '+fmtDate(m.date):''}</span></div><ul>${pts.join('')}</ul>`;
 }
-function resetForm(){S.analyze=false;S.editId=null;S.labor=blankLabor();['#tRef','#tUnits','#tPallets','#tOms','#tMvu'].forEach(i=>$(i).value='');$('#tDate').value=ymd(Date.now());
+function resetForm(){S.locked=false;S.analyze=false;S.editId=null;S.labor=blankLabor();['#tRef','#tUnits','#tPallets','#tOms','#tMvu'].forEach(i=>$(i).value='');$('#tDate').value=ymd(Date.now());
   $('#formTitle').textContent='Enter a received truck';$('#saveBtn').textContent='Save truck';renderLabor()}
 function loadForm(m){S.analyze=true;S.editId=S.sample?null:m.id;$('#tRef').value=m.ref||'';$('#tDate').value=m.date||'';
   [['#tUnits','units'],['#tPallets','pallets'],['#tOms','oms'],['#tMvu','mvu']].forEach(([i,k])=>$(i).value=m[k]||'');
@@ -225,7 +226,7 @@ function loadForm(m){S.analyze=true;S.editId=S.sample?null:m.id;$('#tRef').value
   $('#formTitle').textContent=S.editId?`Editing manifest ${m.ref}`:`Viewing sample ${m.ref}`;$('#saveBtn').textContent=S.editId?'Save changes':'Save truck';renderLabor();location.hash='entry';scrollTo(0,0)}
 $('#clearForm').addEventListener('click',()=>{const wasEditing=!!S.editId;resetForm();scrollTo(0,0);const r=$('#tRef');if(r)r.focus();toast(wasEditing?'Ready for the next truck. The saved truck is on the Dashboard.':'Form cleared')});
 $('#truckForm').addEventListener('submit',async e=>{
-  e.preventDefault();if(!canWrite())return;const m=formManifest();
+  e.preventDefault();if(S.locked){toast('This truck is saved and locked. Click New truck to enter the next one.');return}if(!canWrite())return;const m=formManifest();
   if(!m.ref||!m.date)return;if(!(m.units>0)){toast('Enter the total units from the manifest.');return}
   const refKey=x=>String(x||'').trim().toLowerCase(),cur=S.editId&&manifests().find(x=>x.id===S.editId);let asNew=false;
   if(cur&&refKey(cur.ref)!==refKey(m.ref)){S.editId=null;asNew=true}
@@ -236,7 +237,7 @@ $('#truckForm').addEventListener('submit',async e=>{
   const st=stats(m);
   try{
     if(S.editId){await truckUpdate(S.editId,{...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
-    else{S.editId=await truckAdd({...m,createdAt:Date.now(),createdBy:myId||null});$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved${asNew?' as a new truck':''}: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
+    else{S.editId=await truckAdd({...m,createdAt:Date.now(),createdBy:myId||null});S.locked=true;$('#formTitle').textContent=`Manifest ${m.ref} saved and locked`;toast(`Manifest ${m.ref} saved${asNew?' as a new truck':''}: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
   }catch(err){writeErr(err)}
 });
 
@@ -245,8 +246,7 @@ function inRange(){return manifests()}
 function renderDashboard(){
   const rec=inRange().map(m=>({m,st:stats(m)})).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')||(b.m.createdAt||0)-(a.m.createdAt||0));
   renderChart(rec);
-  $('#truckTable').innerHTML=rec.length?`<table><thead><tr><th>Manifest #</th><th>Received</th><th class="n">Units</th>${STEPS.map(s=>`<th class="n">${esc(s.code)}</th>`).join('')}<th class="n">UPH labor hrs</th><th class="n">UPH</th><th></th></tr></thead><tbody>${rec.map(({m,st})=>`<tr><td><b>${esc(m.ref)}</b></td><td style="white-space:nowrap">${m.date?fmtDate(m.date):'—'}</td><td class="n">${m.units?num(m.units):'—'}</td>${STEPS.map(s=>`<td class="n">${hrs1(st.by[s.key])}</td>`).join('')}<td class="n"><b>${hrs1(st.total)}</b></td><td class="n">${uphPill(st.uph)}</td>
-    <td style="white-space:nowrap"><button class="small" type="button" data-open="${m.id}">Open</button></td></tr>`).join('')}</tbody></table>`:emptyDash();
+  $('#truckTable').innerHTML=rec.length?`<table><thead><tr><th>Manifest #</th><th>Received</th><th class="n">Units</th>${STEPS.map(s=>`<th class="n">${esc(s.code)}</th>`).join('')}<th class="n">UPH labor hrs</th><th class="n">UPH</th></tr></thead><tbody>${rec.map(({m,st})=>`<tr><td><b>${esc(m.ref)}</b></td><td style="white-space:nowrap">${m.date?fmtDate(m.date):'—'}</td><td class="n">${m.units?num(m.units):'—'}</td>${STEPS.map(s=>`<td class="n">${hrs1(st.by[s.key])}</td>`).join('')}<td class="n"><b>${hrs1(st.total)}</b></td><td class="n">${uphPill(st.uph)}</td></tr>`).join('')}</tbody></table>`:emptyDash();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.open){const m=manifests().find(x=>x.id===b.dataset.open);if(m)loadForm(m)}});
