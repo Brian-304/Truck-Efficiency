@@ -180,6 +180,7 @@ function updateResult(){
   $('#rCalc').innerHTML=st.total>0?`${num(m.units)} units ÷ <b>${hrs1(st.total)} downstocking labor hrs</b> = <b>${uphFmt(u)} UPH</b>${st.ded>0?`<br>${hrs1(st.ded)} hrs of unpaid lunches taken out`:''}`:'';
   $('#rSteps').innerHTML=st.all>0?stepTable(STEPS.map(s=>({s,h:st.by[s.key],tot:m})),st.total,`<tr><td><b>Downstocking labor (UPH)</b></td><td class="n"><b>${hrs1(st.total)}</b></td><td class="n">100%</td><td class="vol"><b>${uphFmt(st.uph)} UPH</b></td></tr>`):'';
   renderAnalysis(m,st);
+  {const cb=$('#clearForm');if(cb)cb.textContent=S.editId?'New truck':'Clear'}
 }
 /* ---------- truck analysis (shown once a truck is saved or opened) ---------- */
 const fmtDur=ms=>{const m=Math.round(ms/6e4);return m<60?m+' min':Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'};
@@ -222,16 +223,20 @@ function loadForm(m){S.analyze=true;S.editId=S.sample?null:m.id;$('#tRef').value
     else{const f=ftOf(r),q=ptOf(r);for(let i=0;i<f+q;i++)rows.push({name:'',type:i<f?'ft':'pt',start:r.start,end:r.end})}});
     return[s.key,rows.length?rows:[blankRow()]]}));
   $('#formTitle').textContent=S.editId?`Editing manifest ${m.ref}`:`Viewing sample ${m.ref}`;$('#saveBtn').textContent=S.editId?'Save changes':'Save truck';renderLabor();location.hash='entry';scrollTo(0,0)}
-$('#clearForm').addEventListener('click',()=>{resetForm();toast('Form cleared')});
+$('#clearForm').addEventListener('click',()=>{const wasEditing=!!S.editId;resetForm();scrollTo(0,0);const r=$('#tRef');if(r)r.focus();toast(wasEditing?'Ready for the next truck. The saved truck is on the Dashboard.':'Form cleared')});
 $('#truckForm').addEventListener('submit',async e=>{
   e.preventDefault();if(!canWrite())return;const m=formManifest();
   if(!m.ref||!m.date)return;if(!(m.units>0)){toast('Enter the total units from the manifest.');return}
+  const refKey=x=>String(x||'').trim().toLowerCase(),cur=S.editId&&manifests().find(x=>x.id===S.editId);let asNew=false;
+  if(cur&&refKey(cur.ref)!==refKey(m.ref)){S.editId=null;asNew=true}
+  const dup=manifests().find(x=>x.id!==S.editId&&refKey(x.ref)===refKey(m.ref));
+  if(dup){toast(`Manifest ${m.ref} is already saved. Open it from the Dashboard to change it, or check the manifest number.`);return}
   if(!m.labor.length){toast('Add at least one person with a start and end time.');return}
   const ck=personCheck(m,formRows());if(ck&&ck.block){toast(ck.msg);$('#crewCheck').scrollIntoView({block:'center'});return}
   const st=stats(m);
   try{
     if(S.editId){await truckUpdate(S.editId,{...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
-    else{S.editId=await truckAdd({...m,createdAt:Date.now(),createdBy:myId||null});$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
+    else{S.editId=await truckAdd({...m,createdAt:Date.now(),createdBy:myId||null});$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved${asNew?' as a new truck':''}: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
   }catch(err){writeErr(err)}
 });
 
