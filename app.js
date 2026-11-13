@@ -299,7 +299,7 @@ const rosterId=n=>'n_'+normName(n).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'
 function rosterAll(){
   if(S.sample){const m={};SAMPLE.forEach(t=>(t.labor||[]).forEach(r=>{if(nm(r))m[normName(r.name)]={name:nm(r),type:r.type==='pt'?'pt':'ft'}}));return Object.values(m).sort((a,b)=>a.name.localeCompare(b.name))}
   return [...S.roster].sort((a,b)=>a.name.localeCompare(b.name))}
-const activeRoster=()=>rosterAll().filter(p=>p.active!==false);
+const activeRoster=()=>rosterAll();
 const rosterType=n=>{const p=rosterAll().find(x=>normName(x.name)===normName(n));return p?p.type:null};
 async function saveRosterNames(m){
   if(!db||S.sample)return;const have=new Set(S.roster.map(p=>normName(p.name)));
@@ -307,20 +307,18 @@ async function saveRosterNames(m){
     try{await db.doc('roster/'+rosterId(p.name)).set({name:p.name,type:p.type,createdAt:Date.now(),createdBy:myId||null})}catch(_){}}
 }
 function renderCrew(){
-  const all=rosterAll(),act=all.filter(p=>p.active!==false),left=all.filter(p=>p.active===false),ro=S.sample||!db;
-  const row=p=>{const ed=S.crewEdit===p.id&&!ro;return `<tr><td>${ed?`<span class="crewedit"><input id="ce-name" maxlength="30" value="${esc(p.name)}" aria-label="Name"><button class="small primary" type="button" data-csave="${esc(p.id)}">Save</button><button class="small" type="button" data-ccancel>Cancel</button></span>`:`<b>${esc(p.name)}</b>${p.active===false?' <span class="tag-left">No longer with company</span>':''}`}</td>
+  const all=rosterAll(),ro=S.sample||!db;
+  const row=p=>{const ed=S.crewEdit===p.id&&!ro;return `<tr><td>${ed?`<span class="crewedit"><input id="ce-name" maxlength="30" value="${esc(p.name)}" aria-label="Name"><button class="small primary" type="button" data-csave="${esc(p.id)}">Save</button><button class="small" type="button" data-ccancel>Cancel</button></span>`:`<b>${esc(p.name)}</b>`}</td>
     <td><select data-rtype="${esc(p.id||'')}" ${ro?'disabled':''} style="min-width:124px;max-width:150px" aria-label="Type for ${esc(p.name)}"><option value="ft" ${p.type!=='pt'?'selected':''}>Full-time</option><option value="pt" ${p.type==='pt'?'selected':''}>Part-time</option></select></td>
-    <td style="white-space:nowrap">${ro||ed?'':`<button class="small" type="button" data-cedit="${esc(p.id)}">Edit name</button> ${p.active===false?`<button class="small" type="button" data-cact="${esc(p.id)}">Reactivate</button>`:`<button class="small" type="button" data-cleft="${esc(p.id)}">No longer with company</button>`} <button class="small danger" type="button" data-rdel="${esc(p.id)}">Remove</button>`}</td></tr>`};
+    <td style="white-space:nowrap">${ro||ed?'':`<button class="small" type="button" data-cedit="${esc(p.id)}">Edit name</button> <button class="small danger" type="button" data-rdel="${esc(p.id)}">Remove</button>`}</td></tr>`};
   const head=`<thead><tr><th>Name</th><th>Type</th><th></th></tr></thead>`;
-  $('#crewTable').innerHTML=(all.length?`<p class="sub" style="margin:0 0 8px">${act.length} active${left.length?` · ${left.length} no longer with company`:''}. ${ro?'':'Saved and shared with everyone using the app.'}</p>`:'')+
-    (act.length?`<table>${head}<tbody>${act.map(row).join('')}</tbody></table>`:`<div class="empty">No active crew yet. Add your team above. Each person is saved as soon as you add them.</div>`)+
-    (left.length?`<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">No longer with company (${left.length})</summary><p class="sub">Hidden from new trucks. Past trucks keep their names. Reactivate if someone comes back.</p><table>${head}<tbody>${left.map(row).join('')}</tbody></table></details>`:'');
+  $('#crewTable').innerHTML=(all.length?`<p class="sub" style="margin:0 0 8px">${all.length} on the crew. ${ro?'':'Saved and shared with everyone using the app. Remove someone when they leave; past trucks keep their name and hours.'}</p>`:'')+
+    (all.length?`<table>${head}<tbody>${all.map(row).join('')}</tbody></table>`:`<div class="empty">No crew yet. Add your team above. Each person is saved as soon as you add them.</div>`);
 }
 $('#crewForm').addEventListener('submit',async e=>{e.preventDefault();if(!canWrite())return;const n=$('#cName').value.trim();if(!n)return;
   const ex=S.roster.find(p=>normName(p.name)===normName(n));
-  if(ex&&ex.active!==false){toast(`${ex.name} is already on your crew.`);return}
-  try{if(ex){await db.doc('roster/'+ex.id).update({active:true,type:$('#cType').value});toast(`${ex.name} is back on the crew. Saved.`)}
-    else{await db.doc('roster/'+rosterId(n)).set({name:n,type:$('#cType').value,active:true,createdAt:Date.now(),createdBy:myId||null});toast(`${n} saved to your crew`)}
+  if(ex){toast(`${ex.name} is already on your crew.`);return}
+  try{{await db.doc('roster/'+rosterId(n)).set({name:n,type:$('#cType').value,active:true,createdAt:Date.now(),createdBy:myId||null});toast(`${n} saved to your crew`)}
     $('#cName').value='';$('#cName').focus()}catch(err){writeErr(err)}});
 $('#crewTable').addEventListener('change',async e=>{const id=e.target.dataset&&e.target.dataset.rtype;if(!id||!canWrite())return;
   try{await db.doc('roster/'+id).update({type:e.target.value});toast('Type saved')}catch(err){writeErr(err)}});
@@ -330,9 +328,7 @@ $('#crewTable').addEventListener('click',async e=>{const b=e.target.closest('but
   if(b.dataset.csave){if(!canWrite())return;const id=b.dataset.csave,n=$('#ce-name').value.trim();if(!n){toast('Enter a name.');return}
     if(S.roster.some(p=>p.id!==id&&normName(p.name)===normName(n))){toast(`${n} is already on the crew list.`);return}
     try{await db.doc('roster/'+id).update({name:n});S.crewEdit=null;toast('Name saved. Past trucks keep the name they were saved with.')}catch(err){writeErr(err)}return}
-  if(b.dataset.cleft){if(!canWrite())return;const id=b.dataset.cleft,p=S.roster.find(x=>x.id===id);arm(b,'Confirm',async()=>{try{await db.doc('roster/'+id).update({active:false,leftAt:Date.now()});toast(`${p?p.name:'Person'} marked as no longer with company. Past trucks are unchanged.`)}catch(err){writeErr(err)}});return}
-  if(b.dataset.cact){if(!canWrite())return;try{await db.doc('roster/'+b.dataset.cact).update({active:true});toast('Reactivated and saved')}catch(err){writeErr(err)}return}
-  if(b.dataset.rdel){const id=b.dataset.rdel;arm(b,'Confirm remove',async()=>{if(!canWrite())return;try{await db.doc('roster/'+id).delete();toast('Removed from the crew list. Past trucks are unchanged.')}catch(err){writeErr(err)}})}});
+  if(b.dataset.rdel){const id=b.dataset.rdel;arm(b,'Confirm remove',async()=>{if(!canWrite())return;try{await db.doc('roster/'+id).delete();toast('Removed from the crew. Past trucks keep their name and hours.')}catch(err){writeErr(err)}})}});
 
 function renderAll(){renderBanner();renderDashboard();renderGoals();updateResult();renderPlanInputs();renderCrew()}
 resetForm();route();renderAll();
