@@ -71,12 +71,24 @@ function arm(btn,label,fn){
   armed=btn;btn.dataset.orig=btn.textContent;btn.textContent=label;btn.classList.add('armed');
   setTimeout(()=>{if(armed===btn){btn.classList.remove('armed');btn.textContent=btn.dataset.orig;armed=null}},4000);
 }
+/* ---------- truck storage: shared storage on claude.ai, this browser everywhere else ---------- */
+const LOCAL_TRUCKS='truck-efficiency-trucks',LOCAL_GOAL='truck-efficiency-goal';
+function localLoad(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(_){return fb}}
+function localSave(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){return false}}
+const localFail={code:'local',message:'This browser blocked saving. Check that it is not in private browsing.'};
+async function truckAdd(m){if(db){const ref=await db.collection('manifests').add(m);return ref.id}
+  const id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);S.manifests=[{id,...m},...S.manifests];if(!localSave(LOCAL_TRUCKS,S.manifests))throw localFail;renderAll();return id}
+async function truckUpdate(id,m){if(db)return db.doc('manifests/'+id).update(m);
+  S.manifests=S.manifests.map(x=>x.id===id?{...x,...m}:x);if(!localSave(LOCAL_TRUCKS,S.manifests))throw localFail;renderAll()}
+async function truckDelete(id){if(db)return db.doc('manifests/'+id).delete();
+  S.manifests=S.manifests.filter(x=>x.id!==id);if(!localSave(LOCAL_TRUCKS,S.manifests))throw localFail;renderAll()}
+async function goalSave(v){if(db)return db.doc('settings/goals').set({uph:v,updatedAt:Date.now(),updatedBy:myId||null});
+  if(!localSave(LOCAL_GOAL,v))throw localFail;S.goal=v;renderAll()}
 function canWrite(){
   if(S.sample){toast('Sample preview is on. Turn it off to save real data.');return false}
-  if(!db){toast('Open this page signed in to claude.ai to save.');return false}
   return true;
 }
-function writeErr(e){toast(e&&e.code==='not_granted'?'You have view-only access. Ask the owner for edit access.':'Could not save. Check your connection and try again.')}
+function writeErr(e){if(e&&e.code==='local'){toast(e.message);return}toast(e&&e.code==='not_granted'?'You have view-only access. Ask the owner for edit access.':'Could not save. Check your connection and try again.')}
 
 /* routing */
 const VIEWS=['entry','dashboard','plan','crew','goals'];
@@ -90,7 +102,7 @@ function renderBanner(){
   btn.textContent=S.sample?'Back to live data':'Preview with sample data';
   if(S.sample){m.textContent='Sample preview: made-up manifests so you can see how the dashboard fills in. Nothing here is saved.';return}
   m.textContent={connecting:'Connecting to the shared log…',live:'Live. Everyone with this link sees the same trucks.',
-    nodb:'You can try the calculator, but saving needs you to open this page signed in to claude.ai.',slow:'The shared log is taking a while to answer. Trucks will appear when it connects.',
+    nodb:'Saving in this browser on this device. To share trucks and crew with your team, use the claude.ai link.',slow:'The shared log is taking a while to answer. Trucks will appear when it connects.',
     error:'Could not load the shared log. Reload the page to try again.'}[dbState];
 }
 $('#sampleBtn').onclick=()=>{S.sample=!S.sample;renderAll();renderLabor()};
@@ -218,8 +230,8 @@ $('#truckForm').addEventListener('submit',async e=>{
   const ck=personCheck(m,formRows());if(ck&&ck.block){toast(ck.msg);$('#crewCheck').scrollIntoView({block:'center'});return}
   const st=stats(m);
   try{
-    if(S.editId){await db.doc('manifests/'+S.editId).update({...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
-    else{const ref=await db.collection('manifests').add({...m,createdAt:Date.now(),createdBy:myId||null});S.editId=ref.id;$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
+    if(S.editId){await truckUpdate(S.editId,{...m,updatedAt:Date.now(),updatedBy:myId||null});toast(`Manifest ${m.ref} updated: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
+    else{S.editId=await truckAdd({...m,createdAt:Date.now(),createdBy:myId||null});$('#formTitle').textContent=`Editing manifest ${m.ref}`;$('#saveBtn').textContent='Save changes';toast(`Manifest ${m.ref} saved: ${uphFmt(st.uph)} UPH`);S.analyze=true;updateResult();setTimeout(()=>{const a=$('#rAnalysis');if(a&&!a.hidden)a.scrollIntoView({block:'center',behavior:'smooth'})},60);}
   }catch(err){writeErr(err)}
 });
 
@@ -229,11 +241,11 @@ function renderDashboard(){
   const rec=inRange().map(m=>({m,st:stats(m)})).sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')||(b.m.createdAt||0)-(a.m.createdAt||0));
   renderChart(rec);
   $('#truckTable').innerHTML=rec.length?`<table><thead><tr><th>Manifest #</th><th>Received</th><th class="n">Units</th>${STEPS.map(s=>`<th class="n">${esc(s.code)}</th>`).join('')}<th class="n">UPH labor hrs</th><th class="n">UPH</th><th></th></tr></thead><tbody>${rec.map(({m,st})=>`<tr><td><b>${esc(m.ref)}</b></td><td style="white-space:nowrap">${m.date?fmtDate(m.date):'—'}</td><td class="n">${m.units?num(m.units):'—'}</td>${STEPS.map(s=>`<td class="n">${hrs1(st.by[s.key])}</td>`).join('')}<td class="n"><b>${hrs1(st.total)}</b></td><td class="n">${uphPill(st.uph)}</td>
-    <td style="white-space:nowrap"><button class="small" type="button" data-open="${m.id}">Open</button> ${!S.sample&&db&&(canEdit||(myId&&m.createdBy===myId))?`<button class="small danger" type="button" data-del="${m.id}">Delete</button>`:''}</td></tr>`).join('')}</tbody></table>`:emptyDash();
+    <td style="white-space:nowrap"><button class="small" type="button" data-open="${m.id}">Open</button> ${!S.sample&&(!db||canEdit||(myId&&m.createdBy===myId))?`<button class="small danger" type="button" data-del="${m.id}">Delete</button>`:''}</td></tr>`).join('')}</tbody></table>`:emptyDash();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.open){const m=manifests().find(x=>x.id===b.dataset.open);if(m)loadForm(m)}
-  else if(b.dataset.del){const id=b.dataset.del;arm(b,'Confirm delete',async()=>{if(!canWrite())return;try{await db.doc('manifests/'+id).delete();if(S.editId===id)resetForm();toast('Truck deleted')}catch(err){writeErr(err)}})}});
+  else if(b.dataset.del){const id=b.dataset.del;arm(b,'Confirm delete',async()=>{if(!canWrite())return;try{await truckDelete(id);if(S.editId===id)resetForm();toast('Truck deleted')}catch(err){writeErr(err)}})}});
 function emptyDash(){return `<div class="empty">No trucks yet. Enter a received truck on the Enter truck tab${S.sample?'':', or preview with sample data'}.</div>`}
 function renderChart(rec){
   const all=rec.filter(r=>r.st.uph!=null).sort((x,y)=>(x.m.date||'').localeCompare(y.m.date||'')||(x.m.createdAt||0)-(y.m.createdAt||0));
@@ -262,7 +274,7 @@ function renderGoals(){const ro=!canEdit||S.sample;$('#saveGoal').hidden=ro;$('#
   if(document.activeElement!==$('#gUph'))$('#gUph').value=S.goal}
 $('#goalForm').addEventListener('submit',async e=>{e.preventDefault();if(!canWrite())return;const v=Number($('#gUph').value);
   if(!(v>0)){toast('Enter a UPH goal above 0.');return}
-  try{await db.doc('settings/goals').set({uph:v,updatedAt:Date.now(),updatedBy:myId||null});toast('UPH goal saved')}catch(err){writeErr(err)}});
+  try{await goalSave(v);toast('UPH goal saved')}catch(err){writeErr(err)}});
 
 /* ---------- sample data (preview only, never saved) ---------- */
 const SAMPLE=(()=>{
@@ -381,7 +393,7 @@ resetForm();route();renderAll();
   const use=window.claude&&window.claude.use?n=>window.claude.use(n):async()=>null;
   [db,userCap]=await Promise.all([use('db'),use('user')]);
   if(userCap){try{canEdit=await userCap.canEdit();myId=await userCap.id()}catch(_){}}
-  if(!db){clearTimeout(slow);dbState='nodb';S.roster=localCrewLoad();S.rosterLoaded=true;renderAll();renderLabor();if(!S.roster.length&&!location.hash)location.hash='crew';return}
+  if(!db){clearTimeout(slow);dbState='nodb';canEdit=true;S.manifests=(localLoad(LOCAL_TRUCKS,[])||[]).filter(x=>x&&x.id);{const g=Number(localLoad(LOCAL_GOAL,0));if(g>0)S.goal=g}S.roster=localCrewLoad();S.rosterLoaded=true;renderAll();renderLabor();if(!S.roster.length&&!location.hash)location.hash='crew';return}
   const ok=()=>{clearTimeout(slow);dbState='live'},fail=()=>{clearTimeout(slow);dbState='error';renderBanner()};
   db.collection('manifests').orderBy('date','desc').limit(1000).onSnapshot(s=>{ok();S.manifests=s.docs.map(d=>({id:d.id,...d.data()}));renderAll()},fail);
   db.collection('roster').limit(500).onSnapshot(s=>{ok();S.roster=s.docs.map(d=>({id:d.id,...d.data()})).filter(p=>nm(p));const first=!S.rosterLoaded;S.rosterLoaded=true;renderCrew();renderLabor();if(first&&!S.roster.length&&!location.hash)location.hash='crew'},fail);
