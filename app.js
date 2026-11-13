@@ -1,7 +1,7 @@
 const STEPS=[
-  {key:'unload',team:'rcv',name:'Unload pallets from truck',code:'RCV-UNL',noUph:true,note:'Shown for reference. Not counted in UPH.',rates:[['pallets','pallets']]},
-  {key:'breakdown',team:'oms',name:'Break down pallets',code:'OMS-BRK',note:'Separate OMS orders, validation items, department totes and large units',rates:[['pallets','pallets'],['oms','OMS orders'],['mvu','validation units']]},
-  {key:'validate',team:'man',name:'Validate manifest items (Zebra scan)',code:'MAN-VAL',rates:[['mvu','validation units']]},
+  {key:'unload',team:'rcv',name:'Unload pallets from truck',code:'RCV-UNL',noUph:true,note:'Shown for reference. Not counted in UPH.',rates:[['units','units']]},
+  {key:'breakdown',team:'oms',name:'Break down pallets',code:'OMS-BRK',note:'Separate OMS orders, validation items, department totes and large units',rates:[['units','units']]},
+  {key:'validate',team:'man',name:'Validate manifest items (Zebra scan)',code:'MAN-VAL',rates:[['units','units']]},
   {key:'downstock',team:'dept',name:'Downstock totes and pallets',code:'DPT-DWN',rates:[['units','units']]},
 ];
 const SBY=Object.fromEntries(STEPS.map(s=>[s.key,s]));
@@ -165,10 +165,10 @@ $('#laborRows').addEventListener('click',e=>{const b=e.target.closest('button');
     addRows(k,names.map(n=>({name:n,type:rosterType(n)||'ft',start:st,end:en})));S.groupOpen=null;renderLabor();toast(`Added ${names.length} ${names.length>1?'people':'person'} to ${SBY[k].name}`);return}
   if(b.dataset.add){S.labor[b.dataset.add].push(blankRow());renderLabor();const n=S.labor[b.dataset.add].length-1;$(`#lr-${b.dataset.add}-${n}-name`).focus()}
   if(b.dataset.rm){const[k,i]=b.dataset.rm.split('|');S.labor[k].splice(+i,1);renderLabor()}});
-['tUnits','tPallets','tOms','tMvu'].forEach(id=>$('#'+id).addEventListener('input',updateResult));
+['tUnits'].forEach(id=>$('#'+id).addEventListener('input',updateResult));
 function formManifest(){const n=id=>Math.max(0,Math.round(Number($(id).value)||0));
   const labor=formRows().filter(r=>nm(r)&&r.start&&r.end).map(r=>({stage:r.stage,name:nm(r),type:r.type==='pt'?'pt':'ft',start:r.start,end:r.end,minutes:minsBetween(r.start,r.end)}));
-  return{ref:$('#tRef').value.trim(),date:$('#tDate').value,units:n('#tUnits'),pallets:n('#tPallets'),oms:n('#tOms'),mvu:n('#tMvu'),labor}}
+  return{ref:$('#tRef').value.trim(),date:$('#tDate').value,units:n('#tUnits'),labor}}
 function updateResult(){
   const m=formManifest(),st=stats(m),ps=people(m);
   STEPS.forEach(s=>{S.labor[s.key].forEach((r,i)=>{const el=$(`#lh-${s.key}-${i}`);if(el){const c=rowCalc(r);el.hidden=!(c.hrs>0);const v=$(`#lhv-${s.key}-${i}`);if(v)v.textContent=c.hrs>0?`= ${hrs1(c.hrs)} hrs`:'';const ct=$(`#ct-${s.key}-${i}`);if(ct)ct.hidden=!nm(r)}});const sh=$('#sh-'+s.key);if(sh)sh.textContent=st.raw[s.key]>0?`${hrs1(st.raw[s.key])} hrs before lunches`:''});
@@ -215,10 +215,10 @@ function renderAnalysis(m,st){
   box.hidden=false;
   box.innerHTML=`<div class="ahead"><h3>Truck analysis</h3><span class="sub">${esc(m.ref||'This truck')}${m.date?' · '+fmtDate(m.date):''}</span></div><ul>${pts.join('')}</ul>`;
 }
-function resetForm(){S.locked=false;S.analyze=false;S.editId=null;S.labor=blankLabor();['#tRef','#tUnits','#tPallets','#tOms','#tMvu'].forEach(i=>$(i).value='');$('#tDate').value=ymd(Date.now());
+function resetForm(){S.locked=false;S.analyze=false;S.editId=null;S.labor=blankLabor();['#tRef','#tUnits'].forEach(i=>$(i).value='');$('#tDate').value=ymd(Date.now());
   $('#formTitle').textContent='Enter a received truck';$('#saveBtn').textContent='Save truck';renderLabor()}
 function loadForm(m){S.analyze=true;S.editId=S.sample?null:m.id;$('#tRef').value=m.ref||'';$('#tDate').value=m.date||'';
-  [['#tUnits','units'],['#tPallets','pallets'],['#tOms','oms'],['#tMvu','mvu']].forEach(([i,k])=>$(i).value=m[k]||'');
+  [['#tUnits','units']].forEach(([i,k])=>$(i).value=m[k]||'');
   S.labor=Object.fromEntries(STEPS.map(s=>{const rows=[];(m.labor||[]).filter(r=>r.stage===s.key).forEach(r=>{
     if(nm(r))rows.push({name:nm(r),type:r.type==='pt'?'pt':'ft',start:r.start,end:r.end});
     else{const f=ftOf(r),q=ptOf(r);for(let i=0;i<f+q;i++)rows.push({name:'',type:i<f?'ft':'pt',start:r.start,end:r.end})}});
